@@ -1,0 +1,9 @@
+[% USE table_class = Class(table_class) %]
+
+[% FOR column = table_class.columns %]
+    [% NEXT IF column == primary_key %]
+    <b>[% column %]</b><br/>
+    [% item.$column %]<br/><br/>
+[% END %]
+<a href="[% c.uri_for( 'list' ) %]">List</a>
+

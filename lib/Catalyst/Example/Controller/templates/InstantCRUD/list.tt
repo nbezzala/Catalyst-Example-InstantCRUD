@@ -1,0 +1,39 @@
+[% USE table_class = Class(table_class) %]
+<table>
+    <tr>
+    [% primary = primary_key %]
+    [% FOR column = table_class.columns %]
+        [% NEXT IF column == primary %]
+        <th>[% order_by_column_link(column) %]</th>
+    [% END %]
+        <th/>
+    </tr>
+    [%  SET count = 0; %]
+    [% FOR object =  objects %]
+        [% SET count = count + 1 %]
+        <tr [% ' class="alternate"' IF count % 2; %]>
+        [% FOR column = table_class.columns.list %]
+            [% NEXT IF column == primary %]
+            <td>[% object.$column %]</td>
+        [% END %]
+            <td>
+                <a href="[% c.uri_for( 'view', object.$primary ) %]">
+                    View
+                </a>
+                <a href="[% c.uri_for( 'edit', object.$primary ) %]">
+                    Edit
+
+                </a>
+                <a href="[% c.uri_for( 'destroy', object.$primary ) %]">
+                    Destroy
+                </a>
+            </td>
+        </tr>
+    [% END %]
+</table>
+Pages:
+[% FOR i = [1 .. pages];
+   page_link(i); '&nbsp';
+   END %]
+<br/>
+<a href="[% c.uri_for( 'add' ) %]">Add</a>
