@@ -1,5 +1,5 @@
 package Catalyst::Example::Controller::InstantCRUD;
-use version; $VERSION = qv('0.0.3');
+use version; $VERSION = qv('0.0.4');
 my $LOCATION; 
 BEGIN { use File::Spec; $LOCATION = File::Spec->rel2abs(__FILE__) }
 
@@ -19,24 +19,23 @@ sub auto : Local {
     no strict 'refs';
     my $root   = $c->config->{root};
     my $libroot = file($LOCATION)->parent->subdir('templates');
-    my @additional_paths = ("$root/InstantCRUD/" . ucfirst ( $self->lc_table_name ), "$root/InstantCRUD", $libroot);
+    my @additional_paths = ("$root/InstantCRUD/" . $self->model_name, "$root/InstantCRUD", $libroot);
     $c->stash->{additional_template_paths} = \@additional_paths;
-    $c->stash->{table_class} = $self->table_class();
-    my @primary_keys = $self->table_class()->primary_columns();
+    $c->stash->{model_class} = $self->model_class();
+    my @primary_keys = $self->model_class()->primary_columns();
     $c->stash->{primary_key} = $primary_keys[0];
 }
 
-sub lc_table_name {
+sub model_name {
     my $self = shift;
     my $class = ref $self;
-    $class =~ /([^:]*$)/;
-    return lc $1;
+    $class =~ /([^:]*)$/;
+    return $1;
 }
 
-sub table_class {
+sub model_class {
     my $self = shift;
-    my $class = ref $self;
-    return Catalyst::Utils::class2appclass($class) . '::Model::DBICmodel::' .  ucfirst ( $self->lc_table_name() );
+    return Catalyst::Utils::class2appclass(ref $self) . '::Model::DBICmodel::' .  $self->model_name();
 }
 
 
@@ -47,21 +46,31 @@ sub index: Private {
 
 sub destroy : Local {
     my ( $self, $c, $id ) = @_;
-    my $table_class = $self->table_class();
-    $table_class->find($id)->delete;
-    $c->forward('list');
+    if ( $c->req->method eq 'POST' ){
+        my $model_class = $self->model_class();
+        $model_class->find($id)->delete;
+        $c->forward('list');
+    }else{
+        $c->stash->{destroywidget} = sub {
+            my $w = HTML::Widget->new('widget')->method('post');
+            $w->action ( $c->uri_for ( 'destroy', $id ));
+            $w->element( 'Submit', 'ok' )->value('Delete ?');
+            return $w->process;
+        };
+        $c->stash->{template} = 'destroy.tt';
+    }
 }
 
 sub do_add : Local {
     my ( $self, $c ) = @_;
-    my $table_class = $self->table_class();
+    my $model_class = $self->model_class();
     my $result = $self->_build_widget($c)->process($c->request);
     if($result->have_errors){
         $c->stash->{widget} = $result; 
         $c->stash->{template} = 'edit.tt';
     }else{
-        $c->form( optional => [ $table_class->columns ] );
-        my $item = $table_class->create_from_form( $c->form );
+        $c->form( optional => [ $model_class->columns ] );
+        my $item = $model_class->create_from_form( $c->form );
         $c->forward('view', [ $item->id ]);
     }
 }
@@ -81,10 +90,10 @@ sub _build_widget {
     my ( $self, $c, $id, $item ) = @_;
     my $edit_columns= $self->edit_columns();
 #    warn 'constraints ' . Dumper($edit_columns);
-    my $table_class = $self->table_class();
+    my $model_class = $self->model_class();
     my $w = HTML::Widget->new('widget')->method('post');
     $w->action ( $c->uri_for ( 'do_edit', $id ));
-    for my $column ($table_class->columns){
+    for my $column ($model_class->columns){
         next if ( $column eq $c->stash->{primary_key} );
         my $element = $w->element( 'Textfield', $column)->label(ucfirst($column))->size(10);
         $element->value($item->$column) if $item;
@@ -104,23 +113,22 @@ sub _build_widget {
 
 sub do_edit : Local {
     my ( $self, $c, $id ) = @_;
-    my $table_class = $self->table_class();
+    my $model_class = $self->model_class();
     my $result = $self->_build_widget($c, $id)->process($c->request);
     if($result->have_errors){
         $c->stash->{widget} = $result; 
         $c->stash->{template} = 'edit.tt';
     }else{
-        $c->form( optional => [ $table_class->columns ] );
-        print Dumper($c->form->valid()); use Data::Dumper;
-        $table_class->find($id)->update_from_form( $c->form );
+        $c->form( optional => [ $model_class->columns ] );
+        $model_class->find($id)->update_from_form( $c->form );
         $c->forward('view');
     }
 }
 
 sub edit : Local {
     my ( $self, $c, $id ) = @_;
-    my $table_class = $self->table_class();
-    my $item = $table_class->find($id);
+    my $model_class = $self->model_class();
+    my $item = $model_class->find($id);
     my $w = $self->_build_widget($c, $id, $item)->process();
     $c->stash->{widget} = $w;
     $c->stash->{template} = 'edit.tt';
@@ -176,9 +184,9 @@ sub list : Local {
     $order .= ' DESC' if $c->form->valid->{o2};
     my $maxrows = 10;                             # number or rows on page
     my $page = $c->form->valid->{page} || 1;
-    my $table_class = $self->table_class();
+    my $model_class = $self->model_class();
     $c->stash->{objects} = [
-        $table_class->search(
+        $model_class->search(
             {},
 #            { id => => { '!=', undef }},
             { 
@@ -187,7 +195,7 @@ sub list : Local {
                 rows => $maxrows,
             },
         ) ];
-    my $count = $table_class->count();
+    my $count = $model_class->count();
     $c->stash->{pages} = int($count / $maxrows) + 1;
     $c->stash->{order_by_column_link} = sub {
         my $column = shift;
@@ -204,8 +212,8 @@ sub list : Local {
 
 sub view : Local {
     my ( $self, $c, $id ) = @_;
-    my $table_class = $self->table_class();
-    $c->stash->{item} = $table_class->find($id);
+    my $model_class = $self->model_class();
+    $c->stash->{item} = $model_class->find($id);
     $c->stash->{template} = 'view.tt';
 }
 
@@ -246,11 +254,11 @@ This document describes Catalyst::Example::Controller::InstantCRUD version 0.0.1
 
 =over 4
 
-=item table_class
+=item model_class
 Class method for finding corresponding CDBI model class.
 
-=item lc_table_name
-Class method for finding lowercased name of corresponding database table.
+=item model_name
+Class method for finding name of corresponding database table.
 
 =item auto
 This automatically called method puts on the stash path to templates

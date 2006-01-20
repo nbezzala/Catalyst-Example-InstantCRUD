@@ -1,12 +1,12 @@
 package Catalyst::Helper::Controller::InstantCRUD;
 
-use version; $VERSION = qv('0.0.3');
+use version; $VERSION = qv('0.0.4');
 
 use warnings;
 use strict;
 use Carp;
 use Path::Class;
-use Class::DBI::Loader;
+use DBIx::Class::Loader;
 use Data::Dumper;
 
 sub _mkcolumns{
@@ -41,6 +41,8 @@ sub _mkcolumns{
     
 sub mk_compclass {
     my ( $self, $helper, $dsn, $user, $pass) = @_;
+    my $dir = dir( $helper->{base}, 'root', $helper->{prefix} );
+    $helper->mk_dir($dir);
     my $loader = DBIx::Class::Loader->new(
         dsn       => $dsn,
         user      => $user,
@@ -50,6 +52,7 @@ sub mk_compclass {
     for my $c ( $loader->classes ) {
         $c =~ /\W*(\w+)$/; 
         my $table = $1;
+        $helper->mk_dir( dir ( $dir, $table ) );
         $helper->{columns} = Dumper ( _mkcolumns($c, $table) );
         $helper->{table_name} = lc $table;
         $helper->{class} = $helper->{app} . '::Controller::' . $table;
@@ -59,12 +62,6 @@ sub mk_compclass {
         $helper->render_file( 'compclass', $file );
     }
 
-    my $dir = dir( $helper->{base}, 'root', $helper->{prefix} );
-    $helper->mk_dir($dir);
-    $helper->render_file( 'add',       file( $dir, 'add.tt' ) );
-    $helper->render_file( 'edit',      file( $dir, 'edit.tt' ) );
-    $helper->render_file( 'list',      file( $dir, 'list.tt' ) );
-    $helper->render_file( 'view',      file( $dir, 'view.tt' ) );
     $dir = dir( $helper->{base}, 'root', 'static' );
     $helper->mk_dir($dir);
     print "dir: $dir\n";
@@ -100,18 +97,7 @@ my [% columns %];
 
 
 1;
-__add__
-[% TAGS [- -] %]
-[% PROCESS 'InstantCRUD/add.tt' %]
-__edit__
-[% TAGS [- -] %]
-[% PROCESS 'InstantCRUD/edit.tt' %]
-__list__
-[% TAGS [- -] %]
-[% PROCESS 'InstantCRUD/list.tt' %]
-__view__
-[% TAGS [- -] %]
-[% PROCESS 'InstantCRUD/view.tt' %]
+
 __style__
 
 body {

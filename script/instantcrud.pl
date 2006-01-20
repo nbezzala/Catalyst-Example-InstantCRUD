@@ -68,7 +68,7 @@ $appfilecont =~ s{__PACKAGE__->config.*}{
 __PACKAGE__->config(
     name => 'My::App',
     'View::TT' => {
-        WRAPPER      => 'InstantCRUD/wrapper.tt',
+        WRAPPER      => 'wrapper.tt',
     },
 );
 };

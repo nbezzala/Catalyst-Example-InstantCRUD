@@ -3,15 +3,16 @@ MANIFEST
 META.yml # Will be created by "make dist"
 Makefile.PL
 README
-lib/Catalyst/Helper/Model/DBICform.pm
-lib/Catalyst/Helper/Controller/InstantCRUD.pm
-lib/Catalyst/Example/InstantCRUD.pm
-lib/Catalyst/Example/Controller/InstantCRUD.pm
-lib/Catalyst/Example/Controller/templates/InstantCRUD/wrapper.tt
-lib/Catalyst/Example/Controller/templates/InstantCRUD/edit.tt
-lib/Catalyst/Example/Controller/templates/InstantCRUD/list.tt
-lib/Catalyst/Example/Controller/templates/InstantCRUD/view.tt
 script/instantcrud.pl
 t/00.load.t
 t/pod-coverage.t
 t/pod.t
+lib/Catalyst/Helper/Model/DBICform.pm
+lib/Catalyst/Helper/Controller/InstantCRUD.pm
+lib/Catalyst/Example/InstantCRUD.pm
+lib/Catalyst/Example/Controller/InstantCRUD.pm
+lib/Catalyst/Example/Controller/templates/wrapper.tt
+lib/Catalyst/Example/Controller/templates/edit.tt
+lib/Catalyst/Example/Controller/templates/destroy.tt
+lib/Catalyst/Example/Controller/templates/list.tt
+lib/Catalyst/Example/Controller/templates/view.tt

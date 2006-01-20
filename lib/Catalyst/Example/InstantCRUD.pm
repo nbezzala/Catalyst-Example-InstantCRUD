@@ -1,6 +1,6 @@
 package Catalyst::Example::InstantCRUD;
 
-use version; $VERSION = qv('0.0.2');
+use version; $VERSION = qv('0.0.3');
 
 use warnings;
 use strict;
@@ -43,18 +43,22 @@ When the code is generated you can run the application:
 To access the CRUD interface to the tables you need to add
 '/tablename' (in lowercase) to the address:
 http://localhost:3000/tablename 
+(Note that if the table name has a underscore, that underscore should be 
+deleted in the address so table foo_bar is available at 
+http://localhost:3000/foobar, this is due to some conversions made by the 
+underlying libraries).
 
-The generated application will use Class::DBI::Sweet for model classes and
+The generated application will use DBIx::Class for model classes and
 Template::Toolkit for View.
 
 =head1 CUSTOMISATION AND EXTENDING
 
-The first place for customisations are the Template Toolkit templates and the 
-CSS file.  The generated application have some stub templates in 
-the root/PagingAndSort directory.  The templates INCLUDE the templates from
-the subdirectory templates/PagingAndSort/ of the directory where the 
-Catalyst::Controller::PagingAndSort was installed. The CSS file used by the 
-application is root/static/pagingandsort.css.
+The first place for customisations are the Template Toolkit templates
+and the CSS file. To customize the templates copy them from the subdirectory templates of the directory where the Catalyst::Controller::PagingAndSort
+was installed to the "root" directory in the generated application and modify
+them.
+
+The CSS file used by the application is root/static/pagingandsort.css.
 
 The generated controller is a subclass of Catalyst::Controller::PagingAndSort.
 You can use the standard OO technique of overriding the documented methods

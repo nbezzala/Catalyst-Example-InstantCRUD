@@ -1,6 +1,6 @@
-[% USE table_class = Class(table_class) %]
+[% USE model_class = Class(model_class) %]
 
-[% FOR column = table_class.columns %]
+[% FOR column = model_class.columns %]
     [% NEXT IF column == primary_key %]
     <b>[% column %]</b><br/>
     [% item.$column %]<br/><br/>
