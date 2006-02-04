@@ -51,12 +51,10 @@ sub destroy : Local {
         $model_class->find($id)->delete;
         $c->forward('list');
     }else{
-        $c->stash->{destroywidget} = sub {
-            my $w = HTML::Widget->new('widget')->method('post');
-            $w->action ( $c->uri_for ( 'destroy', $id ));
-            $w->element( 'Submit', 'ok' )->value('Delete ?');
-            return $w->process;
-        };
+        my $w = HTML::Widget->new('widget')->method('post');
+        $w->action ( $c->uri_for ( 'destroy', $id ));
+        $w->element( 'Submit', 'ok' )->value('Delete ?');
+        $c->stash->{destroywidget} = $w->process;
         $c->stash->{template} = 'destroy.tt';
     }
 }
@@ -64,7 +62,9 @@ sub destroy : Local {
 sub do_add : Local {
     my ( $self, $c ) = @_;
     my $model_class = $self->model_class();
-    my $result = $self->_build_widget($c)->process($c->request);
+    my $widget = $self->_build_widget($c);
+    $widget->action ( $c->uri_for ( 'do_add' ));
+    my $result = $widget->process($c->request);
     if($result->have_errors){
         $c->stash->{widget} = $result; 
         $c->stash->{template} = 'edit.tt';
@@ -188,7 +188,6 @@ sub list : Local {
     $c->stash->{objects} = [
         $model_class->search(
             {},
-#            { id => => { '!=', undef }},
             { 
                 page => $page,
                 order_by => $order,
@@ -196,7 +195,7 @@ sub list : Local {
             },
         ) ];
     my $count = $model_class->count();
-    $c->stash->{pages} = int($count / $maxrows) + 1;
+    $c->stash->{pages} = int(($count - 1) / $maxrows) + 1;
     $c->stash->{order_by_column_link} = sub {
         my $column = shift;
         my %params = %{$c->form->valid};

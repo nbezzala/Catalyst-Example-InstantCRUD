@@ -1,6 +1,6 @@
 package Catalyst::Helper::Controller::InstantCRUD;
 
-use version; $VERSION = qv('0.0.4');
+use version; $VERSION = qv('0.0.5');
 
 use warnings;
 use strict;
@@ -9,28 +9,32 @@ use Path::Class;
 use DBIx::Class::Loader;
 use Data::Dumper;
 
-sub _mkcolumns{
+sub _mkcolumns {
     my($tableclass, $table) = @_;
     my %columns;
     my %primarykeys;
-    return \%columns if 1 or ! $tableclass->storage->can('column_info_for');
+#    return \%columns if 1 or ! $tableclass->storage->can('column_info_for');
     my @pks = $tableclass->primary_columns();
     @primarykeys{@pks} = @pks;
     for my $column ($tableclass->columns()){ 
         next if exists $primarykeys{$column};
-        my $column_info = $tableclass->storage->column_info_for($table, $column);
         $columns{$column} = [];
-        if ( $column_info->{TYPE_NAME} =~ /int/i ){
+        my $column_info = $tableclass->column_info($column);
+        if ( $column_info->{data_type} =~ /int/i ){
             push @{$columns{$column}},  {
                 constraint => 'Integer', 
                 message => 'Should be a number',
             }
         }
-        if ( $column_info->{COLUMN_SIZE} ){
+        if ( $tableclass->storage->dbh->{Driver}->{Name} eq 'Pg' and
+            $column_info->{data_type} =~ /int/i ){
+            $column_info->{size} = int( $column_info->{size} * 12 / 5 );
+        }
+        if ( $column_info->{size} ){
             push @{$columns{$column}},  {
                 constraint => 'Length', 
-                message => 'Should be shorten than ' . $column_info->{COLUMN_SIZE},
-                max => $column_info->{COLUMN_SIZE},
+                message => 'Should be shorten than ' . $column_info->{size} . ' characters',
+                max => $column_info->{size},
             }
         }
     }
@@ -53,7 +57,8 @@ sub mk_compclass {
         $c =~ /\W*(\w+)$/; 
         my $table = $1;
         $helper->mk_dir( dir ( $dir, $table ) );
-        $helper->{columns} = Dumper ( _mkcolumns($c, $table) );
+        $helper->{columns} = Dumper ( _mkcolumns($c, $table, )); 
+        $helper->{columns} =~ s/.VAR1 =//;
         $helper->{table_name} = lc $table;
         $helper->{class} = $helper->{app} . '::Controller::' . $table;
         $helper->{table_class} = $helper->{app} . '::Model::CDBI::' . $table;
@@ -91,7 +96,7 @@ use base Catalyst::Example::Controller::InstantCRUD;
 use strict;
 
 sub edit_columns {
-my [% columns %];
+    return [% columns %];
 }
 
 
@@ -213,7 +218,7 @@ label .field {
     font-weight:bold;
 }
 
-.error { color: #d00; }
+.error_messages { color: #d00; }
 
 .action {
     border: 1px outset #7d95b5;

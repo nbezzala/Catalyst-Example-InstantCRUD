@@ -10,3 +10,5 @@ Revision history for Catalyst-Example-PagingAndSort
 - model_class instead of table_class
 - destroy via form (POST)
 
+0.0.4 Sat Feb  4 17:30:19 CET 2006
+- added verification of submitted form values
