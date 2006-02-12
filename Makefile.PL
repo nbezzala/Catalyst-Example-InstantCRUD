@@ -19,6 +19,7 @@ WriteMakefile(
         'Catalyst::View::TT' => 0.21,
         'Template::Plugin::Class' => 0,
         'Catalyst::Plugin::FormValidator' => 0,
+        'Catalyst::Plugin::DefaultEnd' => 0,
         'Catalyst::Model::DBIC' => 0,
         'Catalyst::Helper::Model::DBIC' => 0,
         'DBIx::Class::Loader' => 0,

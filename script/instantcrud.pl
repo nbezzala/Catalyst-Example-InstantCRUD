@@ -10,6 +10,7 @@ use YAML 'LoadFile';
 use File::Spec;
 use File::Slurp;
 use Catalyst::Helper;
+use Catalyst::Utils;
 
 my $help    = 0;
 my $nonew   = 0;
@@ -56,24 +57,30 @@ my @appdirs = split /::/, $appname;
 $appdirs[$#appdirs] .= '.pm';
 my $appfile = File::Spec->catdir ( $appdir, 'lib',  @appdirs ) ;
 my $appfilecont = read_file($appfile);
-my $default = '
+my $default = q{
 sub default : Private {
     my ( $self, $c ) = @_;
     $c->response->status(404);
     $c->response->body("404 Not Found");
-}';
-$appfilecont =~ s{sub default : Private }{$default . "\n\nsub index : Private" }e;
-$appfilecont =~ s{use Catalyst qw/-Debug Static::Simple/}{use Catalyst qw/-Debug Static::Simple FormValidator DefaultEnd/};
-$appfilecont =~ s{__PACKAGE__->config.*}{
-__PACKAGE__->config(
-    name => 'My::App',
-    'View::TT' => {
-        WRAPPER      => 'wrapper.tt',
-    },
-);
+};
 };
 
+$appfilecont =~ s{sub default : Private }
+                 {$default . "\n\nsub index : Private" }e;
+$appfilecont =~ s{use Catalyst qw/(.*)/}
+                 {use Catalyst qw/\1 FormValidator DefaultEnd/};
+
 write_file($appfile, $appfilecont) or die "Cannot write main application file";
+
+my $config = q{
+View::TT:
+    WRAPPER: 'wrapper.tt'
+};
+
+my $configname = Catalyst::Utils::appprefix ( $appname ) . '.yml';
+my $appconfig = File::Spec->catdir ( $appdir, $configname ) ;
+open CONFIG, '>>', $appconfig;
+print CONFIG $config;
 
 1;
 
