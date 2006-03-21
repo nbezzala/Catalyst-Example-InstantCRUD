@@ -1,8 +1,7 @@
-[% USE model_class = Class(model_class) %]
 <table>
     <tr>
     [% primary = primary_key %]
-    [% FOR column = model_class.columns %]
+    [% FOR column = columns %]
         [% NEXT IF column == primary %]
         <th>[% order_by_column_link(column) %]</th>
     [% END %]
@@ -12,7 +11,7 @@
     [% FOR object =  objects %]
         [% SET count = count + 1 %]
         <tr [% ' class="alternate"' IF count % 2; %]>
-        [% FOR column = model_class.columns.list %]
+        [% FOR column = columns %]
             [% NEXT IF column == primary %]
             <td>[% object.$column %]</td>
         [% END %]

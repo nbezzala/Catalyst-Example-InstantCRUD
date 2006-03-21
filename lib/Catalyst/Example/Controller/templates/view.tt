@@ -1,6 +1,4 @@
-[% USE model_class = Class(model_class) %]
-
-[% FOR column = model_class.columns %]
+[% FOR column = columns %]
     [% NEXT IF column == primary_key %]
     <b>[% column %]</b><br/>
     [% item.$column %]<br/><br/>

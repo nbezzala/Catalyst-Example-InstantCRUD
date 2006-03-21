@@ -89,6 +89,8 @@ sub mk_compclass {
 1; # Magic true value required at end of module
 __DATA__
 
+=begin pod_to_ignore
+
 __compclass__
 
 package [% class %];

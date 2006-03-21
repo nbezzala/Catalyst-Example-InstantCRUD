@@ -45,7 +45,8 @@ $appdir =~ s/::/-/g;
 local $FindBin::Bin = File::Spec->catdir($appdir, 'script');
 $helper->mk_component ( $appname, 'view', 'TT', 'TT');
 
-$helper->mk_component ( $appname, 'model', 'DBICmodel', 'DBICform',
+$helper->mk_component ( $appname, 'model', 'DBICSchemamodel', 'DBIC::Schema', 
+    'DBSchema',
     $dsn, $duser, $dpassword
 );
 
@@ -54,9 +55,9 @@ $helper->mk_component ( $appname, 'controller', 'InstantCRUD', 'InstantCRUD',
 );
 
 my @appdirs = split /::/, $appname;
-$appdirs[$#appdirs] .= '.pm';
-my $appfile = File::Spec->catdir ( $appdir, 'lib',  @appdirs ) ;
-my $appfilecont = read_file($appfile);
+my $rootcontrl = File::Spec->catdir ( $appdir, 'lib',  @appdirs, 'Controller', 'Root.pm') ;
+
+my $rootcontrlcont = read_file($rootcontrl);
 my $default = q{
 sub default : Private {
     my ( $self, $c ) = @_;
@@ -65,10 +66,17 @@ sub default : Private {
 };
 };
 
-$appfilecont =~ s{sub default : Private }
+$rootcontrlcont =~ s{sub default : Private }
                  {$default . "\n\nsub index : Private" }e;
+write_file($rootcontrl, $rootcontrlcont) or die "Cannot write main application file";
+
+my @appdirs = split /::/, $appname;
+$appdirs[$#appdirs] .= '.pm';
+my $appfile = File::Spec->catdir ( $appdir, 'lib',  @appdirs ) ;
+my $appfilecont = read_file($appfile);
+
 $appfilecont =~ s{use Catalyst qw/(.*)/}
-                 {use Catalyst qw/\1 FormValidator DefaultEnd/};
+                 {use Catalyst qw/\1 DefaultEnd/};
 
 write_file($appfile, $appfilecont) or die "Cannot write main application file";
 
@@ -81,6 +89,59 @@ my $configname = Catalyst::Utils::appprefix ( $appname ) . '.yml';
 my $appconfig = File::Spec->catdir ( $appdir, $configname ) ;
 open CONFIG, '>>', $appconfig;
 print CONFIG $config;
+close CONFIG;
+
+my $loader = DBIx::Class::Loader->new(
+    dsn       => $dsn,
+    user      => $duser,
+    password  => $dpassword,
+    namespace => 'DBSchema'
+);
+my $sdir = File::Spec->catdir ( $appdir, 'lib', 'DBSchema' );
+mkdir $sdir or die "Cannot create directory $sdir: $!";
+my @models;
+for my $c ( $loader->classes ) {
+    my $table = $c->table;
+    my @columns = $c->columns;
+    my @pk = $c->primary_columns();
+    my $primary_key = $pk[0];
+    my $model = qq{
+package $c;
+
+use strict;
+use warnings;
+use base 'DBIx::Class';
+
+__PACKAGE__->load_components(qw/PK::Auto::Pg Core/);
+__PACKAGE__->table('$table');
+__PACKAGE__->add_columns(qw/@columns/);
+__PACKAGE__->set_primary_key('$primary_key');
+
+1;
+};
+    $c =~ /\W*(\w+)$/;
+    my $modelfile = File::Spec->catdir ( $appdir, 'lib', 'DBSchema', "$1.pm" );
+    push @models, $1;
+    open MODEL, '>', $modelfile;
+    print MODEL $model;
+    close MODEL;
+}
+
+my $schema = qq{
+package DBSchema;
+
+use base qw/DBIx::Class::Schema/;
+__PACKAGE__->load_classes(qw/@models/);
+1;
+};
+
+my $schemafile =  File::Spec->catdir ( $appdir, 'lib', 'DBSchema.pm');
+open SCHEMA, '>', $schemafile or die "Cannot write to $schemafile: $!";
+print SCHEMA $schema;
+close SCHEMA;
+
+my $tfile =  File::Spec->catdir ( $appdir, 't', 'controller_InstantCRUD.t' );
+unlink $tfile or die "Cannot remove $tfile - the wrong test file: $!";
 
 1;
 

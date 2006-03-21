@@ -1,5 +1,5 @@
 package Catalyst::Example::Controller::InstantCRUD;
-use version; $VERSION = qv('0.0.4');
+use version; $VERSION = qv('0.0.5');
 my $LOCATION; 
 BEGIN { use File::Spec; $LOCATION = File::Spec->rel2abs(__FILE__) }
 
@@ -21,9 +21,15 @@ sub auto : Local {
     my $libroot = file($LOCATION)->parent->subdir('templates');
     my @additional_paths = ("$root/InstantCRUD/" . $self->model_name, "$root/InstantCRUD", $libroot);
     $c->stash->{additional_template_paths} = \@additional_paths;
-    $c->stash->{model_class} = $self->model_class();
-    my @primary_keys = $self->model_class()->primary_columns();
+    my $table = $c->model( 'DBICSchemamodel' )->source( $self->model_name() );
+    my @columns = $table->columns;
+    $c->stash->{columns} = \@columns;
+    my @primary_keys = $table->primary_columns();
     $c->stash->{primary_key} = $primary_keys[0];
+    for my $pkcol (@primary_keys){
+            $c->stash->{pk}{$pkcol} = 1;
+    }
+    1;
 }
 
 sub model_name {
@@ -31,11 +37,6 @@ sub model_name {
     my $class = ref $self;
     $class =~ /([^:]*)$/;
     return $1;
-}
-
-sub model_class {
-    my $self = shift;
-    return Catalyst::Utils::class2appclass(ref $self) . '::Model::DBICmodel::' .  $self->model_name();
 }
 
 
@@ -47,8 +48,8 @@ sub index: Private {
 sub destroy : Local {
     my ( $self, $c, $id ) = @_;
     if ( $c->req->method eq 'POST' ){
-        my $model_class = $self->model_class();
-        $model_class->find($id)->delete;
+        my $model_object = $c->model('DBICSchemamodel::' . $self->model_name());
+        $model_object->find($id)->delete;
         $c->forward('list');
     }else{
         my $w = HTML::Widget->new('widget')->method('post');
@@ -61,7 +62,7 @@ sub destroy : Local {
 
 sub do_add : Local {
     my ( $self, $c ) = @_;
-    my $model_class = $self->model_class();
+    my $model_object = $c->model('DBICSchemamodel::' . $self->model_name());
     my $widget = $self->_build_widget($c);
     $widget->action ( $c->uri_for ( 'do_add' ));
     my $result = $widget->process($c->request);
@@ -69,9 +70,13 @@ sub do_add : Local {
         $c->stash->{widget} = $result; 
         $c->stash->{template} = 'edit.tt';
     }else{
-        $c->form( optional => [ $model_class->columns ] );
-        my $item = $model_class->create_from_form( $c->form );
-        $c->forward('view', [ $item->id ]);
+        my %vals;
+        foreach my $col ( @{$c->stash->{columns}} ) {
+            next if $c->stash->{pk}{$col};
+            $vals{$col} = $c->request->param( $col );
+        }
+        my $item = $model_object->create( \%vals );
+        $c->forward('view', [ $item->id ] );
     }
 }
 
@@ -90,13 +95,30 @@ sub _build_widget {
     my ( $self, $c, $id, $item ) = @_;
     my $edit_columns= $self->edit_columns();
 #    warn 'constraints ' . Dumper($edit_columns);
-    my $model_class = $self->model_class();
+    my $table = $c->model( 'DBICSchemamodel' )->source( $self->model_name() );
     my $w = HTML::Widget->new('widget')->method('post');
     $w->action ( $c->uri_for ( 'do_edit', $id ));
-    for my $column ($model_class->columns){
+    for my $column ($table->columns){
         next if ( $column eq $c->stash->{primary_key} );
-        my $element = $w->element( 'Textfield', $column)->label(ucfirst($column))->size(10);
-        $element->value($item->$column) if $item;
+        if ($table->relationship_info($column)) {
+            my $rel_info = $table->relationship_info($column);
+            my $rel_class = $rel_info->{class};
+            my $ref_pk = ($rel_class->primary_columns())[0];
+            $rel_class =~ /::([^:]*)/;
+            my $rel_name = $1;
+            my @options;
+            foreach my $ref_item ($c->model( 'DBICSchemamodel' )->resultset( $rel_name)->search) {
+                push @options, $ref_item->$ref_pk(), "$ref_item";
+            }
+            my $element = $w->element( 'Select', $column)->label(ucfirst($column));
+            $element->options(@options);
+            $element->selected($item->$column->$ref_pk()) if $item;
+        }
+        else {
+            my $element = $w->element( 'Textfield', $column)->label(ucfirst($column))->size(20);
+            $element->value($item->$column) if $item;
+        }
+
         for my $c( @{$edit_columns->{$column}} ){
             my $const = $w->constraint( $c->{constraint}, $column);
             $const->message($c->{message});
@@ -113,22 +135,28 @@ sub _build_widget {
 
 sub do_edit : Local {
     my ( $self, $c, $id ) = @_;
-    my $model_class = $self->model_class();
+    my $model_object = $c->model('DBICSchemamodel::' . $self->model_name());
     my $result = $self->_build_widget($c, $id)->process($c->request);
     if($result->have_errors){
         $c->stash->{widget} = $result; 
         $c->stash->{template} = 'edit.tt';
     }else{
-        $c->form( optional => [ $model_class->columns ] );
-        $model_class->find($id)->update_from_form( $c->form );
+        my $item = $model_object->find($id);
+        foreach my $col ( @{$c->stash->{columns}} ) {
+            next if $c->stash->{pk}{$col};
+            $item->$col ( $c->request->param( $col ) ) ;
+        }
+        $item->update;
         $c->forward('view');
     }
 }
 
+
+
 sub edit : Local {
     my ( $self, $c, $id ) = @_;
-    my $model_class = $self->model_class();
-    my $item = $model_class->find($id);
+    my $model_object = $c->model('DBICSchemamodel::' . $self->model_name());
+    my $item = $model_object->find($id);
     my $w = $self->_build_widget($c, $id, $item)->process();
     $c->stash->{widget} = $w;
     $c->stash->{template} = 'edit.tt';
@@ -136,11 +164,12 @@ sub edit : Local {
 
 
 sub create_page_link {
-    my ( $c, $page, $params ) = @_;
-    $params->{page} = $page;
+    my ( $c, $page, $origparams ) = @_;
+    my %params = %$origparams;          # So that we don't change the params for good
+    $params{page} = $page;
     my $addr;
-    for my $key (keys %$params){
-        $addr .= "&$key=" . $params->{$key};
+    for my $key (keys %params){
+        $addr .= "&$key=" . $params{$key};
     }
     $addr = uri_escape($addr, q{^;/?:@&=+\$,A-Za-z0-9\-_.!~*'()} );
     $addr = encode_entities($addr, '<>&"');
@@ -150,24 +179,24 @@ sub create_page_link {
 }
 
 sub create_col_link {
-    my ( $c, $column, $params ) = @_;
-    if(($params->{order} eq $column) and !$params->{o2}){
-        $params->{o2} = 'desc';
-    }else{
-        delete $params->{o2};
+    my ( $c, $column, $origparams ) = @_;
+    my %params = %$origparams;          # So that we don't change the params for good
+    delete $params{o2};
+    delete $params{page};
+    if(($origparams->{'order'} eq $column) and !$origparams->{'o2'}){
+        $params{o2} = 'desc';
     }
-    $params->{order} = $column;
-    delete $params->{page};        # just in case you'll use paging sometime
+    $params{order} = $column;
     my $addr;
-    for my $key (keys %$params){
-        $addr .= "&$key=" . $params->{$key};
+    for my $key (keys %params){
+        $addr .= "&$key=" . $params{$key};
     }
     $addr = uri_escape($addr, q{^;/?:@&=+\$,A-Za-z0-9\-_.!~*'()} );
     $addr = encode_entities($addr, '<>&"');
     my $result = '<a href="' . $c->uri_for( 'list?' );
     $result .= $addr . '">' . $column . '</a>';
-    if($column eq $c->form->valid->{order}){
-        if($c->form->valid->{o2}){
+    if($origparams->{'order'} and $column eq $origparams->{'order'}){
+        if($origparams->{'o2'}){
             $result .= "&darr;";
         }else{
             $result .= "&uarr;";
@@ -178,15 +207,15 @@ sub create_col_link {
 
 sub list : Local {
     my ( $self, $c ) = @_;
-    $c->form( optional => [ qw/order o2 page/ ] );
-    $c->stash->{valid} = $c->form->valid;
-    my $order = $c->form->valid->{order};
-    $order .= ' DESC' if $c->form->valid->{o2};
+    my $params = $c->request->params;
+    my $order = $params->{'order'};
+    $order .= ' DESC' if $params->{'o2'};
     my $maxrows = 10;                             # number or rows on page
-    my $page = $c->form->valid->{page} || 1;
-    my $model_class = $self->model_class();
+    my $page = $params->{'page'} || 1;
+#    die  $self->model_name();
+    my $model_object = $c->model('DBICSchemamodel::' . $self->model_name());
     $c->stash->{objects} = [
-        $model_class->search(
+        $model_object->search(
             {},
             { 
                 page => $page,
@@ -194,25 +223,23 @@ sub list : Local {
                 rows => $maxrows,
             },
         ) ];
-    my $count = $model_class->count();
+    my $count = $model_object->count();
     $c->stash->{pages} = int(($count - 1) / $maxrows) + 1;
     $c->stash->{order_by_column_link} = sub {
         my $column = shift;
-        my %params = %{$c->form->valid};
-        return create_col_link($c, $column, \%params );
+        return create_col_link($c, $column, $params);
     };
     $c->stash->{page_link} = sub {
         my $page = shift;
-        my %params = %{$c->form->valid};
-        return create_page_link($c, $page, \%params );
+        return create_page_link($c, $page, $params );
     };
     $c->stash->{template} = 'list.tt';
 }
 
 sub view : Local {
     my ( $self, $c, $id ) = @_;
-    my $model_class = $self->model_class();
-    $c->stash->{item} = $model_class->find($id);
+    my $model_object = $c->model('DBICSchemamodel::' . $self->model_name());
+    $c->stash->{item} = $model_object->find($id);
     $c->stash->{template} = 'view.tt';
 }
 
@@ -252,9 +279,6 @@ This document describes Catalyst::Example::Controller::InstantCRUD version 0.0.1
 =head2 METHODS
 
 =over 4
-
-=item model_class
-Class method for finding corresponding CDBI model class.
 
 =item model_name
 Class method for finding name of corresponding database table.
@@ -386,7 +410,7 @@ L<http://rt.cpan.org>.
 =head1 AUTHOR
 
 <Zbigniew Lukasiak>  C<< <<zz bb yy @ gmail.com>> >>
-
+<Lars Balker Rasmussen>
 
 =head1 LICENCE AND COPYRIGHT
 
