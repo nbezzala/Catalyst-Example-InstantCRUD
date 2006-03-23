@@ -16,4 +16,4 @@ Revision history for Catalyst-Example-PagingAndSort
 0.0.8 Tue Mar 14 16:20:41 CET 2006
 - model based on DBIx::Class::Schema
 - added some initial support for relations between tables (author Lars Balker Rasmussen)
-- modified for Catalyst 1.56
+- adopted for Catalyst 1.56
