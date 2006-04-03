@@ -10,7 +10,6 @@ t/pod.t
 lib/Catalyst/Helper/Controller/InstantCRUD.pm
 lib/Catalyst/Example/InstantCRUD.pm
 lib/Catalyst/Example/Controller/InstantCRUD.pm
-lib/Catalyst/Example/Controller/templates/wrapper.tt
 lib/Catalyst/Example/Controller/templates/edit.tt
 lib/Catalyst/Example/Controller/templates/destroy.tt
 lib/Catalyst/Example/Controller/templates/list.tt

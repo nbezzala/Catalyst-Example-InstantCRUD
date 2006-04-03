@@ -1,5 +1,5 @@
 package Catalyst::Example::Controller::InstantCRUD;
-use version; $VERSION = qv('0.0.5');
+use version; $VERSION = qv('0.0.6');
 my $LOCATION; 
 BEGIN { use File::Spec; $LOCATION = File::Spec->rel2abs(__FILE__) }
 
@@ -27,7 +27,7 @@ sub auto : Local {
     my @primary_keys = $table->primary_columns();
     $c->stash->{primary_key} = $primary_keys[0];
     for my $pkcol (@primary_keys){
-            $c->stash->{pk}{$pkcol} = 1;
+        $c->stash->{pk}{$pkcol} = 1;
     }
     1;
 }
@@ -163,16 +163,24 @@ sub edit : Local {
 }
 
 
+sub _mk_addr {
+    my $params = shift;
+    my @pars;
+    for my $key (keys %$params){
+        push @pars, "$key=" . $params->{$key};
+    }
+    my $addr = join '&', @pars;
+    $addr = uri_escape($addr, q{^;/?:@&=+\$,A-Za-z0-9\-_.!~*'()} );
+    $addr = encode_entities($addr, '<>&"');
+    return $addr;
+}
+
+
 sub create_page_link {
     my ( $c, $page, $origparams ) = @_;
     my %params = %$origparams;          # So that we don't change the params for good
     $params{page} = $page;
-    my $addr;
-    for my $key (keys %params){
-        $addr .= "&$key=" . $params{$key};
-    }
-    $addr = uri_escape($addr, q{^;/?:@&=+\$,A-Za-z0-9\-_.!~*'()} );
-    $addr = encode_entities($addr, '<>&"');
+    my $addr = _mk_addr ( \%params );
     my $result = '<a href="' . $c->uri_for( 'list?' );
     $result .= $addr . '">' . $page . '</a>';
     return $result;
@@ -187,12 +195,7 @@ sub create_col_link {
         $params{o2} = 'desc';
     }
     $params{order} = $column;
-    my $addr;
-    for my $key (keys %params){
-        $addr .= "&$key=" . $params{$key};
-    }
-    $addr = uri_escape($addr, q{^;/?:@&=+\$,A-Za-z0-9\-_.!~*'()} );
-    $addr = encode_entities($addr, '<>&"');
+    my $addr = _mk_addr ( \%params );
     my $result = '<a href="' . $c->uri_for( 'list?' );
     $result .= $addr . '">' . $column . '</a>';
     if($origparams->{'order'} and $column eq $origparams->{'order'}){

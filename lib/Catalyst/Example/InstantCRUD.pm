@@ -1,6 +1,6 @@
 package Catalyst::Example::InstantCRUD;
 
-use version; $VERSION = qv('0.0.9');
+use version; $VERSION = qv('0.0.10');
 
 use warnings;
 use strict;
@@ -57,11 +57,11 @@ The first place for customisations are the Template Toolkit templates
 and the CSS file.
 The CSS file used by the application is root/static/pagingandsort.css.
 To customize the templates copy them from the subdirectory templates of the
-directory where the Catalyst::Controller::PagingAndSort
+directory where the Catalyst::Example::Controller::InstantCRUD
 was installed to the "root" directory in the generated application and 
 modify them.
 
-The generated controller is a subclass of Catalyst::Controller::PagingAndSort. It's edit_columns method returns a hash describing all editable columns, 
+The generated controller is a subclass of Catalyst::Example::Controller::InstantCRUD. It's edit_columns method returns a hash describing all editable columns, 
 the constraints are then used to verify values in submited forms.  It should
 be modified to adjust the constraints to local requirements.
 You can use the standard OO technique of overriding the documented methods
