@@ -28,6 +28,7 @@ DEPENDENCIES
         'Catalyst::Model::DBIC' => 0,
         'Catalyst::Helper::Model::DBIC' => 0,
         'DBIx::Class::Loader' => 0,
+        'DBIx::Class::Schema::Loader' => 0.03,
 
 
 COPYRIGHT AND LICENCE

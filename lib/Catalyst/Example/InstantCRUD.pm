@@ -1,6 +1,6 @@
 package Catalyst::Example::InstantCRUD;
 
-use version; $VERSION = qv('0.0.10');
+use version; $VERSION = qv('0.0.11');
 
 use warnings;
 use strict;
@@ -58,12 +58,15 @@ and the CSS file.
 The CSS file used by the application is root/static/pagingandsort.css.
 To customize the templates copy them from the subdirectory templates of the
 directory where the Catalyst::Example::Controller::InstantCRUD
-was installed to the "root" directory in the generated application and 
-modify them.
+was installed (you can find out this by issuing the command: 
+perldoc -l Catalyst::Example::Controller::InstantCRUD) 
+to the "root" directory in the generated application and 
+modify them.  You can also copy the templates to the subdirectories of 
+the "root" directory named after the generated controllers (and so after 
+the database tables).
 
-The generated controller is a subclass of Catalyst::Example::Controller::InstantCRUD. It's edit_columns method returns a hash describing all editable columns, 
-the constraints are then used to verify values in submited forms.  It should
-be modified to adjust the constraints to local requirements.
+The generated controller is a subclass of 
+Catalyst::Example::Controller::InstantCRUD. 
 You can use the standard OO technique of overriding the documented methods
 to customize and extend it.
 
@@ -74,17 +77,23 @@ to customize and extend it.
     including any restrictions on versions, and an indication whether
     the module is part of the standard Perl distribution, part of the
     module's distribution, or must be installed separately. ]
-
-'Test::More' => 0,
-'version'    => 0,
-'Catalyst'      => 0,
-'URI::Escape'   => 0,
-'HTML::Entities' => 0,
-'HTML::Widget' => 0,
-'File::Spec'    => 0,
-'Catalyst::View::TT' => 0.21,
-'Template::Plugin::Class'
-
+        'Test::More' => 0,
+        'version'    => 0,
+        'Catalyst'      => 0,
+        'URI::Escape'   => 0,
+        'HTML::Entities' => 0,
+        'HTML::Widget' => 0,
+        'File::Spec'    => 0,
+        'Catalyst' => 5.66,
+        'Catalyst::View::TT' => 0.21,
+        'Template::Plugin::Class' => 0,
+        'Catalyst::Plugin::DefaultEnd' => 0,
+        'Catalyst::Model::DBIC' => 0,
+        'Catalyst::Helper::Model::DBIC::Schema' => 0,
+        'DBIx::Class' => 0,
+        'DBIx::Class::Schema' => 0,
+        'DBIx::Class::Loader' => 0,
+        'File::Slurp'   => 0,
 
 =head1 BUGS AND LIMITATIONS
 
@@ -92,6 +101,8 @@ The main generator script (instantcrud.pl) is an ugly hack.  First
 the Catalyst helpers assume where the executable is located so I had
 to fool them, second there is no API for creation of the main
 application module (My::App).
+
+The generated application shall not work for tables with composite primary keys.
 
 Please report any bugs or feature requests to
 C<bug-catalyst-example-instantcrud@rt.cpan.org>, or through the web interface at

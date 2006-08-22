@@ -1,33 +1,232 @@
-package Catalyst::Helper::Controller::InstantCRUD;
+package Catalyst::Helper::InstantCRUD;
+use base Catalyst::Helper;
 
 use version; $VERSION = qv('0.0.6');
 
 use warnings;
 use strict;
 
-sub mk_compclass {
-    my ( $self, $helper, @classes) = @_;
-    
-    # controllers
-    for my $class ( @classes ) {
-        $helper->{class} = $helper->{app} . '::Controller::' . $class;
-        (my $file = $helper->{file})  =~ s/InstantCRUD/$class/;
-        $helper->render_file( compclass => $file );
-    }
-    
+sub _mk_appclass {
+    my $self = shift;
+    my $mod  = $self->{mod};
+    $self->render_file( 'appclass', "$mod.pm" );
 }
 
-1; # Magic true value required at end of module
+sub _mk_rootclass {
+    my $self = shift;
+    $self->render_file( 'rootclass',
+        File::Spec->catfile( $self->{c}, "Root.pm" ) );
+}
+
+sub _mk_config {
+    my $self      = shift;
+    my $dir       = $self->{dir};
+    my $appprefix = $self->{appprefix};
+    $self->render_file( 'config',
+        File::Spec->catfile( $dir, "$appprefix.yml" ) );
+}
+
+# No CHANGES file (already created)
+sub _mk_changes {}
+
+1;
 __DATA__
 
 =begin pod_to_ignore
 
-__compclass__
-package [% class %];
-use base Catalyst::Example::Controller::InstantCRUD;
+__appclass__
+package [% name %];
+
 use strict;
+use warnings;
+
+use Catalyst::Runtime '5.70';
+
+use Catalyst qw/
+	-Debug
+	ConfigLoader
+	Static::Simple
+	StackTrace
+	HTML::Widget
+[% IF auth -%]
+	Authentication
+	Authentication::Store::DBIC
+	Authentication::Credential::Password
+	Auth::Utils
+[% END -%]
+	Session
+	Session::Store::FastMmap
+	Session::State::Cookie
+/;
+
+our $VERSION = '0.01';
+
+__PACKAGE__->config( name => '[% name %]' );
+
+# Start the application
+__PACKAGE__->setup;
+
+#
+# IMPORTANT: Please look into [% rootname %] for more
+#
+
+=head1 NAME
+
+[% name %] - Catalyst based application
+
+=head1 SYNOPSIS
+
+    script/[% appprefix %]_server.pl
+
+=head1 DESCRIPTION
+
+Catalyst based application.
+
+=head1 SEE ALSO
+
+L<[% rootname %]>, L<Catalyst>
+
+=head1 AUTHOR
+
+[% author %]
+
+=head1 LICENSE
+
+This library is free software, you can redistribute it and/or modify
+it under the same terms as Perl itself.
+
+=cut
 
 1;
+__rootclass__
+package [% rootname %];
+
+use strict;
+use warnings;
+use base 'Catalyst::Controller';
+
+#
+# Sets the actions in this controller to be registered with no prefix
+# so they function identically to actions created in MyApp.pm
+#
+__PACKAGE__->config->{namespace} = '';
+
+=head1 NAME
+
+[% rootname %] - Root Controller for this Catalyst based application
+
+=head1 SYNOPSIS
+
+See L<[% name %]>.
+
+=head1 DESCRIPTION
+
+Root Controller for this Catalyst based application.
+
+=head1 METHODS
+
+=cut
+
+=head2 default
+
+By default all the pages return 404
+
+=cut
+
+sub default : Private {
+    my ( $self, $c ) = @_;
+    $c->response->status(404);
+    $c->response->body("404 Not Found");
+};
+
+=head2 index
+
+=cut
+
+sub index : Private{
+    my ( $self, $c ) = @_;
+    my @additional_paths = ( $c->config->{root} );
+    $c->stash->{additional_template_paths} = \@additional_paths;
+    $c->stash->{template} = 'home';
+}
+
+[% IF auth %]
+
+=head2 restricted
+Action available only for logged in users.  Checks if user is logged in, if not, forwards to login page.
+=cut
+
+sub restricted : Local : ActionClass('Auth::Check') {
+    my ( $self, $c ) = @_;
+}
+
+
+=head2 login
+
+Login logic
+
+=cut
+
+sub login : Local : ActionClass('Auth::Login') {}
+
+=head2 logout
+
+Logout logic
+
+=cut
+
+sub logout : Local : ActionClass('Auth::Logout') {}
+[% END %]
+
+=head2 end
+
+Attempt to render a view, if needed.
+
+=cut
+
+sub end : ActionClass('RenderView') {}
+
+=head1 AUTHOR
+
+[% author %]
+
+=head1 LICENSE
+
+This library is free software, you can redistribute it and/or modify
+it under the same terms as Perl itself.
+
+=cut
+
+1;
+__config__
+---
+name: [% name %]
+
+View::TT:
+    WRAPPER: 'wrapper'
+
+InstantCRUD:
+    model_name: [% model_name %]
+    schema_name: [% schema_name %]
+    maxrows: 10
+[% IF auth %]
+authentication:
+    dbic:
+        failled_logon_message: 'Bad username or password.'
+        user_class: [% model_name %]::[% auth.user_class %]
+        user_field: [% auth.user_field %]
+        password_field: [% auth.password_field %]
+        password_type: [% auth.password_type %]
+        password_hash_type: [% auth.password_hash_type %]
+[% END; IF authz %]
+authorization:
+    dbic:
+        role_class: [% model_name %]::[% authz.role_class %]
+        role_source: [% authz.role_class %]
+        role_field: [% authz.role_field %]
+        role_rel: [% authz.role_rel %]
+        user_role_user_field: [% authz.user_role_user_field %]
+[% END %]
 __END__
 
 =head1 NAME

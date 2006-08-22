@@ -9,190 +9,107 @@ use Pod::Usage;
 use YAML 'LoadFile';
 use File::Spec;
 use File::Slurp;
-use Catalyst::Helper;
+use Catalyst::Helper::InstantCRUD;
+use Catalyst::Example::InstantCRUD::Utils;
 use Catalyst::Utils;
+use Data::Dumper;
 
-my $help    = 0;
-my $nonew   = 0;
-my $scripts = 0;
-my $short   = 0;
+my $help     = 0;
+my $adv_help = 0;
+my $nonew    = 0;
+my $scripts  = 0;
+my $short    = 0;
+my $auth     = 1;
 my $dsn;
 my $duser;
 my $dpassword;
 my $appname;
 
+my $model_name  = 'DBICSchemamodel';
+my $schema_name = 'DBSchema';
+
+my %auth;
+my %authz;
+
 GetOptions(
     'help|?'  => \$help,
+    'advanced_help'  => \$adv_help,
     'nonew'   => \$nonew,
     'scripts' => \$scripts,
     'short'   => \$short,
     'name=s'    => \$appname,
     'dsn=s'     => \$dsn,
     'user=s'    => \$duser,
-    'password=s'=> \$dpassword
+    'password=s'=> \$dpassword,
+    'auth!'      => \$auth,
+    
+    'model_name=s'=> \$model_name,
+    'schema_name=s'=> \$schema_name,
+    
+    'auth_user_table=s' => \$auth{user_table},
+    'auth_user_field=s' => \$auth{user_field},
+    'auth_password_field=s' => \$auth{password_field},
+    'auth_password_type=s' => \$auth{password_type},
+    'auth_password_hash_type=s' => \$auth{password_hash_type},
+    'auth_user_role_user_field=s' => \$auth{user_role_user_field},
+    
+    'authz_role_table=s' => \$authz{role_table},
+    'authz_role_field=s' => \$authz{role_field},
+    'authz_user_role_user_field=s' => \$authz{user_role_user_field},
+    'authz_role_rel=s' => \$authz{role_rel},
 );
 
+pod2usage($adv_help ? 1 : 2) if $help || $adv_help || !$appname;
 
-pod2usage(1) if ( $help || !$appname );
+{
+    require DBIx::Class::Schema::Loader;
+    no strict 'refs';
+    @{"$schema_name\::ISA"} = qw/DBIx::Class::Schema::Loader/;
+    $schema_name->loader_options(relationships => 1, exclude => qr/^sqlite_sequence$/);
+}
 
-my $helper =
-  Catalyst::Helper->new(
-    { '.newfiles' => !$nonew, 'scripts' => $scripts, 'short' => $short } );
+my $schema = $schema_name->connect($dsn, $duser, $dpassword);
+
+my $attrs = Catalyst::Example::InstantCRUD::Utils->load_schema($schema,
+    auth => \%auth, authz => \%authz, noauth => !$auth,
+);
+      
+# Application
+my $helper = Catalyst::Helper::InstantCRUD->new( {
+    '.newfiles'   => !$nonew,
+    'scripts'     => $scripts,
+    'short'       => $short,
+    'model_name'  => $model_name,
+    'schema_name' => $schema_name,
+    'auth'        => $attrs->{auth},
+    'authz'       => $attrs->{authz},
+} );
+
 pod2usage(1) unless $helper->mk_app( $appname );
 
 my $appdir = $appname;
 $appdir =~ s/::/-/g;
 local $FindBin::Bin = File::Spec->catdir($appdir, 'script');
-$helper->mk_component ( $appname, 'view', 'TT', 'TT');
 
-$helper->mk_component ( $appname, 'model', 'DBICSchemamodel', 'DBIC::Schema', 
-    'DBSchema',
-    $dsn, $duser, $dpassword
-);
-
+# Controllers
 $helper->mk_component ( $appname, 'controller', 'InstantCRUD', 'InstantCRUD',
-    $dsn, $duser, $dpassword
+  @{$attrs->{classes}}
 );
 
-my @appdirs = split /::/, $appname;
-my $rootcontrl = File::Spec->catdir ( $appdir, 'lib',  @appdirs, ($short ? 'C' : 'Controller'), 'Root.pm') ;
-
-my $rootcontrlcont = read_file($rootcontrl);
-my $default = q{
-sub default : Private {
-    my ( $self, $c ) = @_;
-    $c->response->status(404);
-    $c->response->body("404 Not Found");
-};
-sub index : Private{
-    my ( $self, $c ) = @_;
-    my @additional_paths = ( File::Spec->catdir ( $c->config->{root}, "InstantCRUD" ) );
-    $c->stash->{additional_template_paths} = \@additional_paths;
-    $c->stash->{template} = 'home.tt';
-}
-};
-
-$rootcontrlcont =~ s/sub default : Private [^}]*\}/$default/es;
-
-#$rootcontrlcont =~ s{use base .*}{use base 'Catalyst::Example::Controller::InstantCRUD';};
-
-write_file($rootcontrl, $rootcontrlcont) or die "Cannot write main application file";
-
-my @appdirs = split /::/, $appname;
-$appdirs[$#appdirs] .= '.pm';
-my $appfile = File::Spec->catdir ( $appdir, 'lib',  @appdirs ) ;
-my $appfilecont = read_file($appfile);
-
-$appfilecont =~ s{use Catalyst qw/(.*)/}
-                 {use Catalyst qw/\1 DefaultEnd/};
-
-write_file($appfile, $appfilecont) or die "Cannot write main application file";
-
-my $config = q{
-View::TT:
-    WRAPPER: 'wrapper.tt'
-};
-
-my $configname = Catalyst::Utils::appprefix ( $appname ) . '.yml';
-my $appconfig = File::Spec->catdir ( $appdir, $configname ) ;
-write_file( $appconfig, {append => 1}, $config) or die "Cannot uppend to $appconfig: $!";
-
-my $loader = DBIx::Class::Loader->new(
-    dsn       => $dsn,
-    user      => $duser,
-    password  => $dpassword,
-    namespace => 'DBSchema'
+# Model
+$helper->mk_component ( $appname, 'model', $model_name, 'InstantCRUD', 
+  $schema_name, $dsn, $duser, $dpassword, {}, $attrs
 );
-my $sdir = File::Spec->catdir ( $appdir, 'lib', 'DBSchema' );
-mkdir $sdir or die "Cannot create directory $sdir: $!";
-my %models;
-for my $c ( $loader->classes ) {
-    my $table = $c->table;
-    my @columns = $c->columns;
-    my @pk = $c->primary_columns();
-    my $primary_key = $pk[0];
-    my $model = qq{
-package $c;
 
-use strict;
-use warnings;
-use base 'DBIx::Class';
+my @classes = map {
+    $attrs->{many_to_many_relation_table}{$schema->class($_)->table} ? () : $_
+} @{$attrs->{classes}};
 
-__PACKAGE__->load_components(qw/PK::Auto::Pg Core/);
-__PACKAGE__->table('$table');
-__PACKAGE__->add_columns(qw/@columns/);
-__PACKAGE__->set_primary_key('$primary_key');
+# View and Templates
+$helper->mk_component ( $appname, 'view', 'TT', 'InstantCRUD', @classes );
 
-1;
-};
-    $c =~ /\W*(\w+)$/;
-    my $modelfile = File::Spec->catdir ( $appdir, 'lib', 'DBSchema', "$1.pm" );
-    $models{$table} = $1;
-    write_file( $modelfile, $model) or die "Cannot write to $modelfile: $!";
-}
-
-my @models = values %models;
-my $schema = qq{
-package DBSchema;
-
-use base qw/DBIx::Class::Schema/;
-__PACKAGE__->load_classes(qw/@models/);
-1;
-};
-
-my $schemafile =  File::Spec->catdir ( $appdir, 'lib', 'DBSchema.pm');
-write_file( $schemafile, $schema ) or die "Cannot write to $schemafile: $!";
-
-my $tfile =  File::Spec->catdir ( $appdir, 't', 'controller_InstantCRUD.t' );
-unlink $tfile or die "Cannot remove $tfile - the wrong test file: $!";
-
-my $table_menu = '| <a href="[% base %]">Home</a> |';
-for my $table (keys %models){
-    $table_menu .= ' <a href="[% base %]' . lc $models{$table} . "\">$table</a> |";
-}
-my $table_menu_file = File::Spec->catdir ( $appdir, 'root', 'InstantCRUD', 'table_menu' );
-write_file( $table_menu_file, $table_menu ) or die "Cannot write to $table_menu_file: $!";
-
-my $home = q{
-This is an application generated by  
-<a href="http://search.cpan.org/~zby/Catalyst-Example-InstantCRUD-v0.0.9/lib/Catalyst/Example/InstantCRUD.pm">Catalyst::Example::InstantCRUD</a>
-- a generator of simple database applications for the 
-<a href="http://catalyst.perl.org">Catalyst</a> framework.
-See also 
-<a href="http://cpansearch.perl.org/dist/Catalyst/lib/Catalyst/Manual/Intro.pod">Catalyst::Manual::Intro</a>
-and
-<a href="http://cpansearch.perl.org/dist/Catalyst/lib/Catalyst/Manual/Tutorial.pod">Catalyst::Manual::Tutorial</a>
-};
-
-my $home_file = File::Spec->catdir ( $appdir, 'root', 'InstantCRUD', 'home.tt' );
-write_file( $home_file, $home) or die "Cannot write to $home_file: $!";
-
-my $wrapper = q{
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN"
-    "http://www.w3.org/TR/xhtml1/DTD/xhtml11.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml">
-    <head>
-        <title>
-            [% appname %]
-        </title>
-        <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
-        <link title="Maypole" href="[%base%]static/pagingandsort.css" type="text
-/css" rel="stylesheet"/>
-    </head>
-    <body>
-        <div class="table_menu">
-            [% PROCESS table_menu %]
-        </div>
-        <div class="content">
-            [% content %]
-        </div>
-    </body>
-</html>
-};
-
-my $wrapper_file = File::Spec->catdir ( $appdir, 'root', 'InstantCRUD', 'wrapper.tt' );
-write_file( $wrapper_file, $wrapper) or die "Cannot write to $wrapper_file: $!";
-
+#my $tfile =  File::Spec->catdir ( $appdir, 't', 'controller_InstantCRUD.t' );
+#unlink $tfile or die "Cannot remove $tfile - the wrong test file: $!";
 
 1;
 
@@ -207,20 +124,41 @@ instantcrud.pl - Bootstrap a Catalyst application example
 instantcrud.pl [options] 
 
  Options:
-   -help       display this help and exits
-   -nonew      don't create a .new file where a file to be created exists
-   -scripts    update helper scripts only
-   -short      use short types, like C instead of Controller...
-   -name       application-name
-   -dsn        dsn
-   -user       database user
-   -password   database password
+   -help           display this help and exits
+   -advanced_help  display the advanced help screen and exits
+   -nonew          don't create a .new file where a file to be created exists
+   -scripts        update helper scripts only
+   -short          use short types, like C instead of Controller...
+   -name           application-name
+   -dsn            dsn
+   -user           database user
+   -password       database password
+   -model_name     model name (default: DBICSchemamodel) 
+   -schema_name    schema name (default: DBSchema) 
 
  application-name must be a valid Perl module name and can include "::"
 
  Examples:
     instantcrud.pl -name=My::App -dsn='dbi:Pg:dbname=CE' -user=zby -password='pass'
 
+
+=head1 OPTIONS
+
+ (For advanced users...)
+
+ Authentication options:
+    (See Catalyst::Plugin::Authentication::Store::DBIC for more info)
+    -auth_user_table		 user table name
+    -auth_user_field		 user field name
+    -auth_password_field	 password field name
+    -auth_password_type		 password type (clear, crypted, hashed, or salted_hash)
+    -auth_password_hash_type	 password hash type (any hashing method supported by the Digest module may be used)
+ 
+     Authorization options:
+    -authz_role_table		 name of the table that contains the list of roles 
+    -authz_role_field		 name of the field in authz_role_table that contains the role name
+    -authz_user_role_user_field  name of the field in the user_role table that contains the user id		
+    -authz_role_rel		 name of the relationship in role Class that refers to the mapping table between users and roles
 
 
 =head1 DESCRIPTION
@@ -288,7 +226,6 @@ runs the generated application as a CGI script
 
 runs the generated application as a FastCGI script
 
-
 =item C<my_app_test.pl>
 
 runs an action of the generated application from the comand line.
@@ -301,10 +238,8 @@ test directory
 
 =back
 
-
 The application module generated by the C<catalyst.pl> script is functional,
 although it reacts to all requests by outputting a friendly welcome screen.
-
 
 =head1 NOTE
 
@@ -319,7 +254,6 @@ changed the generated code (although you do of course have all your code in a
 version control system anyway, don't you ...).
 
 
-
 =head1 SEE ALSO
 
 L<Catalyst::Manual>, L<Catalyst::Manual::Intro>
@@ -328,7 +262,8 @@ L<Catalyst::Manual>, L<Catalyst::Manual::Intro>
 
 Sebastian Riedel, C<sri@oook.de>,
 Andrew Ford, C<A.Ford@ford-mason.co.uk>
-Zbigniew Lukasiak, C<zz bb yy@gmail.com> - modifications
+Zbigniew Lukasiak, C<zz bb yy@gmail.com>
+Jonas Alves, C<jonas.alves at gmail.com>
 Jonathan Manning
 
 =head1 COPYRIGHT
@@ -339,3 +274,4 @@ This library is free software, you can redistribute it and/or modify it under
 the same terms as Perl itself.
 
 =cut
+

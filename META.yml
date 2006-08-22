@@ -1,25 +1,36 @@
 # http://module-build.sourceforge.net/META-spec.html
 #XXXXXXX This is a prototype!!!  It will change in the future!!! XXXXX#
 name:         Catalyst-Example-InstantCRUD
-version:      v0.0.10
+version:      v0.0.11
 version_from: lib/Catalyst/Example/InstantCRUD.pm
 installdirs:  site
 requires:
-    Catalyst:                      5.66
+    Catalyst::Devel:               1.00
     Catalyst::Helper::Model::DBIC::Schema: 0
     Catalyst::Model::DBIC:         0
-    Catalyst::Plugin::DefaultEnd:  0
+    Catalyst::Plugin::Authentication: 0.07
+    Catalyst::Plugin::Authentication::Credential::Password: 0
+    Catalyst::Plugin::Authentication::Store::DBIC: 0.07
+    Catalyst::Plugin::ConfigLoader: 0
+    Catalyst::Plugin::HTML::Widget: 0
+    Catalyst::Plugin::Session::State::Cookie: 0
+    Catalyst::Plugin::Session::Store::FastMmap: 0
+    Catalyst::Plugin::StackTrace:  0
+    Catalyst::Plugin::Static::Simple: 0
+    Catalyst::Runtime:             5.7000
     Catalyst::View::TT:            0.21
-    DBIx::Class:                   0
-    DBIx::Class::Loader:           0
-    DBIx::Class::Schema:           0
+    DBIx::Class:                   0.07000
+    DBIx::Class::DigestColumns:    0
+    DBIx::Class::Schema::Loader:   0.03
+    File::Slurp:                   0
     File::Spec:                    0
     HTML::Entities:                0
     HTML::Widget:                  0
+    Pod::Usage:                    0
     Template::Plugin::Class:       0
     Test::More:                    0
     URI::Escape:                   0
     version:                       0
 
 distribution_type: module
-generated_by: ExtUtils::MakeMaker version 6.30
+generated_by: ExtUtils::MakeMaker version 6.17
