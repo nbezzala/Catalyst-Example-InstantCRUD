@@ -22,3 +22,9 @@ Revision history for Catalyst-Example-PagingAndSort
 - fixed bug with -short (thanks Jonathan Manning)
 - added menu with all available tables
 
+0.0.12 Tue Aug 22 15:43:44 CEST 2006
+- added one to many and many to many relations
+- added some authentication/authorisation framework
+- all datatype config goes now into generated DBIC delclarations
+- added some first tests
+- other big changes 
