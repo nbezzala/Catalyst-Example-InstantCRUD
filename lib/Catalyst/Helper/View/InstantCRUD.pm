@@ -1,6 +1,6 @@
 package Catalyst::Helper::View::InstantCRUD;
 
-use version; $VERSION = qv('0.0.1');
+use version; $VERSION = qv('0.0.3');
 
 use warnings;
 use strict;
@@ -9,17 +9,17 @@ use Path::Class;
 use HTML::Widget::Element::DoubleSelect;
 
 sub mk_compclass {
-    my ( $self, $helper, @classes) = @_;
+    my ( $self, $helper, $attrs, $schema) = @_;
+    my @classes = map {
+        $attrs->{many_to_many_relation_table}{$schema->class($_)->table} ? () : $_
+    } @{$attrs->{classes}};
+
     my $dir = dir( $helper->{dir}, 'root' );
     $helper->mk_dir($dir);
 
     # TT View
     $helper->mk_component( $helper->{app}, 'view', $helper->{name}, 'TT' );
     
-    # templates
-    $helper->mk_file( file( $dir, $_ ), $helper->get_file( __PACKAGE__, $_ ) )
-      for qw/login edit view list destroy pager wrapper/;
-
     # table menu
     my $table_menu = '| <a href="[% base %]">Home</a> | <a href="[% base %]restricted">Restricted Area </a> |';
     for my $c (@classes) {
@@ -30,13 +30,28 @@ sub mk_compclass {
     # static files
     $helper->render_file( home => file( $dir, 'home' ) );
     $helper->render_file( restricted => file( $dir, 'restricted' ) );
-    $helper->mk_dir( $dir = dir( $helper->{dir}, 'root', 'static' ) );
-    $helper->render_file( style => file( $dir, 'pagingandsort.css' ) );
+    $helper->mk_file( file( $dir, 'wrapper' ), $helper->get_file( __PACKAGE__, 'wrapper' ) );
+    $helper->mk_file( file( $dir, 'login' ), $helper->get_file( __PACKAGE__, 'login' ) );
+    my $staticdir = dir( $helper->{dir}, 'root', 'static' );
+    $helper->mk_dir( $staticdir );
+    $helper->render_file( style => file( $staticdir, 'pagingandsort.css' ) );
 
     # javascript
-    $helper->mk_file( file( $dir, 'doubleselect.js' ),
+    $helper->mk_file( file( $staticdir, 'doubleselect.js' ),
         HTML::Widget::Element::DoubleSelect->js_lib );
     
+    # templates
+    for my $class (@classes){
+        my $classdir = dir( $helper->{dir}, 'root', $class );
+        $helper->mk_dir( $classdir );
+        $helper->mk_file( file( $classdir, $_ ), $helper->get_file( __PACKAGE__, $_ ) )
+        for qw/edit view destroy pager/;
+        my %elements = map { $_ => 1 } @{$attrs->{tables}{lc $class}{qw/cols/}},
+        @{$attrs->{tables}{lc $class}{qw/relationships/}};
+        my $fields = join "', '", keys %elements;
+        $helper->{fields} = "[ '$fields' ]";
+        $helper->render_file( list => file( $classdir, 'list' ));
+    }
     return 1;
 }
 
@@ -412,15 +427,16 @@ Results: [% pager.first %] to [% pager.last %] from [% pager.total_entries %]<br
 </div>
 
 __list__
+[% TAGS <+ +> %]
 <table>
 <tr>
-[% FOR column = columns %]
+[% FOR column = <+ fields +> %]
 <th> [% order_by_column_link(column) %] </th>
 [% END %]
 </tr>
 [% WHILE (row = result.next) %]
     <tr>
-    [% FOR column = columns %]
+    [% FOR column = <+ fields +> %]
         <td> [% column_value(row, column) %]</td>
     [% END %]
     [% SET id = row.$pri %]

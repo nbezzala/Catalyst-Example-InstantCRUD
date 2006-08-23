@@ -28,3 +28,6 @@ Revision history for Catalyst-Example-PagingAndSort
 - all datatype config goes now into generated DBIC delclarations
 - added some first tests
 - other big changes 
+
+0.0.13 Wed Aug 23 14:35:35 CEST 2006
+- Generating separate templates per Controller

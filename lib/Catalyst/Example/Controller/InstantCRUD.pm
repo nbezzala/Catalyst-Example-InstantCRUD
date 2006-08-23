@@ -1,6 +1,6 @@
 package Catalyst::Example::Controller::InstantCRUD;
 
-use version; $VERSION = qv('0.0.7');
+use version; $VERSION = qv('0.0.9');
 
 use warnings;
 use strict;
@@ -9,6 +9,7 @@ use base 'Catalyst::Base';
 use Carp;
 use Data::Dumper;
 use HTML::Widget;
+use Path::Class;
 
 sub source_name {
     my $self  = shift;
@@ -46,6 +47,13 @@ sub model_class {
     my $source     = $self->source_name;
     return $c->model($model_name)->class($source);
 }
+
+sub auto : Local {
+    my ( $self, $c ) = @_;
+    $c->stash->{additional_template_paths} = [ dir( $c->config->{root}, $self->source_name) . '', $c->config->{root} . ''];
+}
+
+
 
 sub button {
     my ($name) = @_;
@@ -206,7 +214,11 @@ sub list : Local {
     $c->stash->{page_link} = $self->create_page_link($c);
     $c->stash->{pager}     = $result->pager;
     my $source  = $result->result_source;
-    $c->stash->{columns} = [ $result->html_columns() ];
+#    $c->stash->{columns} = [ $result->html_columns() ];
+#    my $model_name = $c->config->{InstantCRUD}{model_name};
+#    my $source     = $self->source_name;
+#    my $mld = "$model_name::Usr";
+#    $c->stash->{aaa} = $c->model('DBICSchemamodel::User')->_aaa();
     $c->stash->{order_by_column_link} = $self->create_col_link($c, $source);
     ($c->stash->{pri}) = $source->primary_columns;
     $c->stash->{column_value} = \&column_value;
@@ -282,6 +294,9 @@ Subroutine placed on stash for templates to use.
 
 =item create_page_link
 Subroutine placed on stash for templates to use.
+
+=item auto 
+Adds Controller name as additional directory to search for templates
 
 =item index
 Forwards to list

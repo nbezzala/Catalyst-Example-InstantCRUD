@@ -101,12 +101,8 @@ $helper->mk_component ( $appname, 'model', $model_name, 'InstantCRUD',
   $schema_name, $dsn, $duser, $dpassword, {}, $attrs
 );
 
-my @classes = map {
-    $attrs->{many_to_many_relation_table}{$schema->class($_)->table} ? () : $_
-} @{$attrs->{classes}};
-
 # View and Templates
-$helper->mk_component ( $appname, 'view', 'TT', 'InstantCRUD', @classes );
+$helper->mk_component ( $appname, 'view', 'TT', 'InstantCRUD', $attrs, $schema );
 
 #my $tfile =  File::Spec->catdir ( $appdir, 't', 'controller_InstantCRUD.t' );
 #unlink $tfile or die "Cannot remove $tfile - the wrong test file: $!";
