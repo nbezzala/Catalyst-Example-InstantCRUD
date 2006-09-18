@@ -1,6 +1,6 @@
 package Catalyst::Example::Controller::InstantCRUD;
 
-use version; $VERSION = qv('0.0.9');
+use version; $VERSION = qv('0.0.10');
 
 use warnings;
 use strict;
@@ -20,10 +20,7 @@ sub source_name {
 
 sub model_widget {
     my ( $self, $c, $id ) = @_;
-    my $w =
-      ref $id
-      ? $id->get_widget()
-      : $self->model_item( $c, $id )->get_widget();
+    my $w = $self->model_item( $c, $id )->get_widget();
     return HTML::Widget->new('widget')->method('post')->embed($w);
 }
 
@@ -86,7 +83,7 @@ sub destroy : Local {
 sub do_add : Local {
     my ( $self, $c ) = @_;
     my $item   = $self->model_item($c);
-    my $w      = $self->model_widget( $c, $item );
+    my $w      = $self->model_widget( $c, $item->id );
     my $result =
       $w->action( $c->uri_for('do_add') )->embed( button('Create') )
       ->process( $c->request );
@@ -111,7 +108,7 @@ sub add : Local {
 sub do_edit : Local {
     my ( $self, $c, $id ) = @_;
     my $item = $self->model_item( $c,   $id );
-    my $w    = $self->model_widget( $c, $item );
+    my $w    = $self->model_widget( $c, $id );
     my $result =
       $w->action( $c->uri_for( 'do_edit', $id ) )->embed( button('Update') )
       ->process( $c->request );

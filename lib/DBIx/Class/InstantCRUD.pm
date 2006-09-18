@@ -148,6 +148,7 @@ sub populate_from_widget {
     my ( $self, $result ) = @_;
     my @widgets = ( $result, @{ $result->{_embedded} || [] } );
     my @elements = map @{ $_->{_elements} }, @widgets;
+    warn "elements: @elements\n";
     my ( @cols, @rels );
     for (@elements) {
         my $name = $_->name;

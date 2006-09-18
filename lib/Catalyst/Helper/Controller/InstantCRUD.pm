@@ -1,20 +1,92 @@
 package Catalyst::Helper::Controller::InstantCRUD;
 
-use version; $VERSION = qv('0.0.6');
+use version; $VERSION = qv('0.0.7');
 
 use warnings;
 use strict;
 
 sub mk_compclass {
-    my ( $self, $helper, @classes) = @_;
+    my ( $self, $helper, $schema) = @_;
     
     # controllers
-    for my $class ( @classes ) {
+    my @source_monikers = $schema->sources;
+    for my $class( @source_monikers ) {
         $helper->{class} = $helper->{app} . '::Controller::' . $class;
         (my $file = $helper->{file})  =~ s/InstantCRUD/$class/;
+        $helper->{columns} = [ _getcolumns( $schema->source($class) ) ];
+        $helper->{belongsto} = [ _getbelongsto( $schema->source($class) ) ];
         $helper->render_file( compclass => $file );
+        $helper->render_file( altcompclass => $file . '.alt' );
     }
-    
+}
+
+sub _getbelongsto {
+    my $table = shift;
+    my @columns;
+    for my $col ($table->columns){
+        next if !$table->relationship_info($col);
+        my $info = $table->column_info($col);
+        my $label = $info->{label} || join ' ', map { ucfirst } split '_', $col;
+        push @columns, {widgettype => 'Select', name => $col, label => $label };
+    }
+    return @columns;
+}
+
+sub _getcolumns {
+    my $table = shift;
+    my @columns;
+    my %primary_columns = map {$_ => 1} $table->primary_columns;
+    for my $col ($table->columns){
+        my $info = $table->column_info($col);
+        next if $info->{is_auto_increment};
+        next if $primary_columns{$col};
+        next if $table->relationship_info($col);
+        my $size = $info->{size} || 40;
+        my $label = $info->{label} || join ' ', map { ucfirst } split '_', $col;
+        my ( $widgettype, @constraints);
+        if ( $info->{data_type} =~ /int/i ) {
+            push @constraints,  {
+                constraint => 'Integer',
+                message => 'Should be a number',
+            }
+        } elsif ( $info->{size} ) {
+            push @constraints,  {
+                constraint => 'Length',
+                message => "Should be shorten than $info->{size} characters",
+                method => 'max',
+                arg    => $info->{size},
+            };
+        }
+        if ( !$info->{is_nullable} && !$info->{is_auto_increment}){
+            push @constraints,  {
+                constraint => 'All',
+                message => "The field is required",
+            }
+        }
+        if ( $col =~ /password|passwd/ ) {
+            $size = 40 if $size > 40;
+            $widgettype = 'Password';
+           push @constraints,  {
+                constraint => 'Equal',
+                args => [ "$col\_2" ],
+                message => "Passwords must match",
+            }, {
+                constraint => 'AllOrNone',
+                args => [ "$col\_2" ],
+                message => "Confirm the password",
+            };
+            push @columns, {widgettype => $widgettype, name => $col, label => $label, size => $size, constraints => \@constraints};
+            push @columns, {widgettype => $widgettype, name => $col .'_2', label => $label, size => $size, constraints => \@constraints};
+         }else{
+            if( $size > 80 ){
+                $widgettype = 'Textarea';
+            }else{
+                $widgettype = 'Textfield';
+            } 
+            push @columns, {widgettype => $widgettype, name => $col, label => $label, size => $size, constraints => \@constraints};
+        }
+    }
+    return @columns;
 }
 
 1; # Magic true value required at end of module
@@ -26,6 +98,50 @@ __compclass__
 package [% class %];
 use base Catalyst::Example::Controller::InstantCRUD;
 use strict;
+
+1;
+__altcompclass__
+package [% class %];
+use base Catalyst::Example::Controller::InstantCRUD;
+use strict;
+
+sub model_widget {
+    my ( $self, $c, $id ) = @_;
+    my $item = $self->model_item( $c, $id ) if $id;
+    my $table = $self->model_resultset( $c )->result_source();
+    my $w = HTML::Widget->new();
+    my ($element, $info, @options, $relatedclass, $ref_pk, $const);
+    [% FOR col = columns %]
+      $element = $w->element( '[% col.widgettype %]', '[% col.name %]' );
+      $element->label( '[% col.label%]' );
+      $element->value( $item->[% col.name %] ) if $id;
+      [% IF col.widgettype == 'Textfield' %]
+        $element->size([% col.size %]);
+        $element->maxlength([% col.size %]);
+      [% END %]
+      [% FOR const = col.constraints %]
+        $const = $w->constraint( '[% const.constraint %]', '[% col.name %]' [% IF const.args %] , '[% const.args %]' [% END %] )->message( '[% const.message %]' );
+        [% IF const.method %]
+        $const->[% const.method %]([% const.arg %]);
+        [% END %]
+      [% END %]
+    [% END %]
+    my $model = $c->model($c->config->{InstantCRUD}{model_name});
+    [% FOR col = belongsto %]
+      $element = $w->element( '[% col.widgettype %]', '[% col.name %]' );
+      $element->label( '[% col.label%]' );
+      @options = ( 0, '' );
+      $info = $table->relationship_info('[% col.name %]');
+      $relatedclass = $model->resultset($info->{source});
+      $ref_pk = ( $relatedclass->result_source->primary_columns ) [0];
+      for my $ref_item ( $relatedclass->search() ){
+          push @options, $ref_item->$ref_pk, "$ref_item"; 
+      }
+      $element->options(@options);
+      $element->selected( $item->[% col.name %] ) if $id;
+    [% END %]
+    return HTML::Widget->new('widget')->method('post')->embed($w);
+}
 
 1;
 __END__

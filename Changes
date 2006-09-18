@@ -29,5 +29,9 @@ Revision history for Catalyst-Example-PagingAndSort
 - added some first tests
 - other big changes 
 
-0.0.13 Wed Aug 23 14:35:35 CEST 2006
+0.0.14 Wed Aug 23 17:35:35 CEST 2006
 - Generating separate templates per Controller
+
+0.0.16 Mon Sep 18 08:48:30 CEST 2006
+- Generating alternative controllers (with model_widget implemented)
+

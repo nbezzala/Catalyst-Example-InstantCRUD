@@ -1,6 +1,6 @@
 package Catalyst::Example::InstantCRUD;
 
-use version; $VERSION = qv('0.0.14');
+use version; $VERSION = qv('0.0.16');
 
 use warnings;
 use strict;
@@ -33,7 +33,8 @@ database connection details.
 
 =head1 DESCRIPTION
 
-The script will create CRUD interface with paging and sort for all
+The script will create CRUD interface (CReate, Update, Delete) 
+with paging and sort for all
 tables defined in the accessed database.  
 When the code is generated you can run the application:
 
@@ -69,6 +70,10 @@ The generated controller is a subclass of
 Catalyst::Example::Controller::InstantCRUD. 
 You can use the standard OO technique of overriding the documented methods
 to customize and extend it.
+In the same directory there is generated an alternative controller
+- this one overrides the model_widget subroutine.  You can copy it over the
+stub controller and then easily delete fields or otherwise customize 
+the widget used for editing or adding new records.
 
 =head1 DEPENDENCIES
 
