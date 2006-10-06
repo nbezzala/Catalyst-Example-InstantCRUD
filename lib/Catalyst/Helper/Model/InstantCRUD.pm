@@ -70,10 +70,8 @@ use base qw/[% schema %]::base/;
 # Is that value that appears in HTML Select's and things like that.
 use overload '""' => sub {$_[0]->[% overload_method %]}, fallback => 1;
 
-__PACKAGE__->widget_elements([qw/[% elements %]/]);
-__PACKAGE__->list_columns([qw/[% elements %]/]);
 __PACKAGE__->table('[% table %]');
-__PACKAGE__->add_columns([% columns %]);
+__PACKAGE__->add_columns(qw/[% FOR col = columns; col; ' '; END %]/);
 __PACKAGE__->set_primary_key(qw/[% pks %]/);
 [% relationships %]
 1;
@@ -83,7 +81,7 @@ use strict;
 use warnings;
 use base 'DBIx::Class';
 
-__PACKAGE__->load_components(qw/InstantCRUD DigestColumns Core/);
+__PACKAGE__->load_components(qw/DigestColumns Core/);
 #__PACKAGE__->load_components(qw/InstantCRUD DigestColumns InflateColumn::DateTime Core/);
 
 1;

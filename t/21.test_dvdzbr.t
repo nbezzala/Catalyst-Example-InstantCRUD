@@ -96,13 +96,13 @@ $mech->content_contains("Zbigniew Lukasiak", "User listed");
 $mech->get_ok("/dvd/add", "Adding a DVD with a related Tag");
 
 # Hack to simulate the selection of a value in the double select
-$mech->form_number(1)->push_input(option => {name => 'dvdtags', value => '1' });
+$mech->form_number(1)->push_input(option => {name => 'tags', value => '1' });
 
 $mech->submit_form(
     form_number => 1,
     fields      => {
         name => 'Jurassic Park II',
-        dvdtags => 1,
+        tags => 1,
         owner => 1,
         current_owner => 2,
         hour => '10:00',
@@ -111,6 +111,8 @@ $mech->submit_form(
 	imdb_id => 133,
     }
 );
+warn $mech->content();
+
 $mech->content_contains('Jurassic Park II', "DVD added");
 $mech->content_like(qr/Tags[^A]+Action/, "DVD added with Tag");
 $mech->get_ok("/dvd/list", "Listing DVD's");

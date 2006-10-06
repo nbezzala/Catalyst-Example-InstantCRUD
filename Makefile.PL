@@ -16,7 +16,7 @@ WriteMakefile(
         'DBIx::Class::Schema::Loader'                            => '0.03',
 	'DBIx::Class::DigestColumns'                             => 0,
         'Template::Plugin::Class'                                => 0,
-        'Catalyst::Model::DBIC'                                  => 0,
+        'Catalyst::Model::DBIC::Schema'                          => 0,
         'Catalyst::Helper::Model::DBIC::Schema'                  => 0,
         'Catalyst::Plugin::ConfigLoader'                         => 0,
         'Catalyst::Plugin::Static::Simple'                       => 0,

@@ -1,13 +1,13 @@
 # http://module-build.sourceforge.net/META-spec.html
 #XXXXXXX This is a prototype!!!  It will change in the future!!! XXXXX#
 name:         Catalyst-Example-InstantCRUD
-version:      v0.0.16
+version:      v0.0.17
 version_from: lib/Catalyst/Example/InstantCRUD.pm
 installdirs:  site
 requires:
     Catalyst::Devel:               1.00
     Catalyst::Helper::Model::DBIC::Schema: 0
-    Catalyst::Model::DBIC:         0
+    Catalyst::Model::DBIC::Schema: 0
     Catalyst::Plugin::Authentication: 0.07
     Catalyst::Plugin::Authentication::Credential::Password: 0
     Catalyst::Plugin::Authentication::Store::DBIC: 0.07

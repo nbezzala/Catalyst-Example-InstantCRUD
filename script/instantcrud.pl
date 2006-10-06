@@ -93,7 +93,7 @@ local $FindBin::Bin = File::Spec->catdir($appdir, 'script');
 
 # Controllers
 $helper->mk_component ( $appname, 'controller', 'InstantCRUD', 'InstantCRUD',
-  $schema
+  $schema, $attrs,
 );
 
 # Model

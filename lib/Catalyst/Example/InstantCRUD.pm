@@ -1,6 +1,6 @@
 package Catalyst::Example::InstantCRUD;
 
-use version; $VERSION = qv('0.0.16');
+use version; $VERSION = qv('0.0.17');
 
 use warnings;
 use strict;
@@ -20,7 +20,7 @@ Catalyst::Example::InstantCRUD
 
 =head1 VERSION
 
-This document describes Catalyst::Example::InstantCRUD version 0.0.4
+This document describes Catalyst::Example::InstantCRUD version 0.0.17
 
 
 =head1 SYNOPSIS
@@ -36,6 +36,13 @@ database connection details.
 The script will create CRUD interface (CReate, Update, Delete) 
 with paging and sort for all
 tables defined in the accessed database.  
+The Create and Update forms let you manipulate also on relations
+(even many to many).
+It includes some basic authentication code.
+
+I am waiting for suggestions what else basic functionality would be nice
+to have in the generated application.
+
 When the code is generated you can run the application:
 
     $ My-App/script/my_app_server.pl
@@ -57,23 +64,20 @@ Template::Toolkit for View.
 The first place for customisations are the Template Toolkit templates
 and the CSS file.
 The CSS file used by the application is root/static/pagingandsort.css.
-To customize the templates copy them from the subdirectory templates of the
-directory where the Catalyst::Example::Controller::InstantCRUD
-was installed (you can find out this by issuing the command: 
-perldoc -l Catalyst::Example::Controller::InstantCRUD) 
-to the "root" directory in the generated application and 
-modify them.  You can also copy the templates to the subdirectories of 
-the "root" directory named after the generated controllers (and so after 
-the database tables).
+The templates are generated in directories named after the controllers in the
+root directory.  
+
+To customize the forms used for creation and modification of records you can
+modify the interface_config.dat file generated in the application main 
+directory.  For now it's content is a dump of a perl structure. I hope it is
+enough self explanatory for some simple
+modifications.  The most basic one should be deleting some field,
+by deleting it's hash from the list, and changing the order of fields.
 
 The generated controller is a subclass of 
 Catalyst::Example::Controller::InstantCRUD. 
 You can use the standard OO technique of overriding the documented methods
 to customize and extend it.
-In the same directory there is generated an alternative controller
-- this one overrides the model_widget subroutine.  You can copy it over the
-stub controller and then easily delete fields or otherwise customize 
-the widget used for editing or adding new records.
 
 =head1 DEPENDENCIES
 
@@ -107,7 +111,7 @@ the Catalyst helpers assume where the executable is located so I had
 to fool them, second there is no API for creation of the main
 application module (My::App).
 
-The generated application shall not work for tables with composite primary keys.
+The generated application shall not work for tables with composite primary keys (other than the link tables for a many to many relatioship).
 
 Please report any bugs or feature requests to
 C<bug-catalyst-example-instantcrud@rt.cpan.org>, or through the web interface at

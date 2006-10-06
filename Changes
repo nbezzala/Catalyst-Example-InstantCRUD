@@ -1,4 +1,4 @@
-Revision history for Catalyst-Example-PagingAndSort
+Revision history for Catalyst-Example-InstantCRUD
 
 0.0.1  Thu Dec  8 15:29:28 2005
        Initial release.
@@ -34,4 +34,9 @@ Revision history for Catalyst-Example-PagingAndSort
 
 0.0.16 Mon Sep 18 08:48:30 CEST 2006
 - Generating alternative controllers (with model_widget implemented)
+
+0.0.17 Fri Oct  6 12:54:18 CEST 2006
+- Generating interface_config.dat - config for forms used to create and update records
+- Form config removed from the generated 'DBIx::Class'es
+- Not generating alternative controllers any more
 

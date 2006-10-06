@@ -14,8 +14,8 @@ t/pod.t
 t/tmp/test.db
 t/var/dvdzbr.db
 t/var/test.db
-lib/DBIx/Class/InstantCRUD.pm
 lib/HTML/Widget/Element/DoubleSelect.pm
+lib/HTML/Widget/DBIC.pm
 lib/Catalyst/Helper/View/InstantCRUD.pm
 lib/Catalyst/Helper/Model/InstantCRUD.pm
 lib/Catalyst/Helper/InstantCRUD.pm

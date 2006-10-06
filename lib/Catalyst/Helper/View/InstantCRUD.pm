@@ -1,6 +1,6 @@
 package Catalyst::Helper::View::InstantCRUD;
 
-use version; $VERSION = qv('0.0.3');
+use version; $VERSION = qv('0.0.4');
 
 use warnings;
 use strict;
@@ -45,12 +45,21 @@ sub mk_compclass {
         my $classdir = dir( $helper->{dir}, 'root', $class );
         $helper->mk_dir( $classdir );
         $helper->mk_file( file( $classdir, $_ ), $helper->get_file( __PACKAGE__, $_ ) )
-        for qw/edit view destroy pager/;
-        my %elements = map { $_ => 1 } @{$attrs->{tables}{lc $class}{qw/cols/}},
-        @{$attrs->{tables}{lc $class}{qw/relationships/}};
-        my $fields = join "', '", keys %elements;
+        for qw/edit destroy pager/;
+        my @fields;
+        my @field_configs;
+#        warn "fconf: " . Dumper(@{$attrs->{config}{$class}{fields}});
+        for my $fconf ( @{$attrs->{config}{$class}} ){
+            if( $fconf->{widget_element} and !( $fconf->{widget_element}[0] eq 'Password') ) {
+                push @fields, $fconf->{name};
+                push @field_configs, $fconf;
+            }
+        }
+        my $fields = join "', '", @fields;
         $helper->{fields} = "[ '$fields' ]";
+        $helper->{field_configs} = \@field_configs;
         $helper->render_file( list => file( $classdir, 'list' ));
+        $helper->render_file( view => file( $classdir, 'view' ));
     }
     return 1;
 }
@@ -451,8 +460,13 @@ __list__
 <a href="[% c.uri_for( 'add' ) %]">Add</a>
 
 __view__
-[% item.to_html %]
+[% TAGS <+ +> %]
+<+ FOR column = field_configs +>
+<b><+ column.label +>:</b> [% column_value( item, '<+ column.name +>' ) %]<br />
+<+ END +>
+<hr />
 <a href="[% c.uri_for( 'list' ) %]">List</a>
+
 __destroy__
 [% destroywidget %]
 <br>

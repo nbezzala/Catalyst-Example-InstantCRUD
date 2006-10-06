@@ -1,6 +1,6 @@
 package Catalyst::Example::Controller::InstantCRUD;
 
-use version; $VERSION = qv('0.0.10');
+use version; $VERSION = qv('0.0.11');
 
 use warnings;
 use strict;
@@ -10,6 +10,21 @@ use Carp;
 use Data::Dumper;
 use HTML::Widget;
 use Path::Class;
+use HTML::Widget::DBIC;
+
+sub load_interface_config {
+    my ( $self, $c ) = @_;
+    my $cfile = file( dir( $c->config->{root} )->parent, 'interface_config.dat' );
+    my $tmp = do $cfile;
+    my $interface_config;
+    for my $class ( keys %{$tmp} ){
+        for my $field_conf ( @{$tmp->{$class}} ){
+            $interface_config->{$class}{fields}{$field_conf->{name}} = $field_conf;
+            push @{$interface_config->{$class}{field_order}}, $field_conf->{name};
+        }
+    }
+    return ( $interface_config, $tmp );
+}
 
 sub source_name {
     my $self  = shift;
@@ -20,8 +35,14 @@ sub source_name {
 
 sub model_widget {
     my ( $self, $c, $id ) = @_;
-    my $w = $self->model_item( $c, $id )->get_widget();
-    return HTML::Widget->new('widget')->method('post')->embed($w);
+    my ($tmp, $interface_config) = $self->load_interface_config($c);
+    my $model_name = $c->config->{InstantCRUD}{model_name};
+    my $rs = $self->model_resultset($c);
+    my $item = $rs->find($id);
+    my $fieldsconfig = $interface_config->{$self->source_name};
+    my $w = HTML::Widget::DBIC->create_from_config( $fieldsconfig, $c->model($model_name), $self->source_name, $item ); 
+    $w->method( 'post' );
+    return $w;
 }
 
 sub model_item {
@@ -49,8 +70,6 @@ sub auto : Local {
     my ( $self, $c ) = @_;
     $c->stash->{additional_template_paths} = [ dir( $c->config->{root}, $self->source_name) . '', $c->config->{root} . ''];
 }
-
-
 
 sub button {
     my ($name) = @_;
@@ -82,17 +101,16 @@ sub destroy : Local {
 
 sub do_add : Local {
     my ( $self, $c ) = @_;
-    my $item   = $self->model_item($c);
-    my $w      = $self->model_widget( $c, $item->id );
-    my $result =
-      $w->action( $c->uri_for('do_add') )->embed( button('Create') )
-      ->process( $c->request );
+    my $w = $self->model_widget( $c );
+    my $fs = $w->element( 'Fieldset', 'Submit' );
+    $fs->element( 'Submit', 'ok' )->value('Create');
+    my $result = $w->action( $c->uri_for('do_add') )->process( $c->request );
     if ( $result->has_errors ) {
         $c->stash->{widget}   = $result;
         $c->stash->{template} = 'edit';
     }
     else {
-        $item->populate_from_widget($result);
+        my $item = $result->save_to_db();
         $c->forward( 'view', [ $item->id ] );
     }
 }
@@ -100,25 +118,26 @@ sub do_add : Local {
 sub add : Local {
     my ( $self, $c ) = @_;
     my $w = $self->model_widget($c);
-    $c->stash->{widget} =
-      $w->action( $c->uri_for('do_add') )->embed( button('Create') )->process;
+    my $fs = $w->element( 'Fieldset', 'Submit' );
+    $fs->element( 'Submit', 'ok' )->value('Create');
+    $c->stash->{widget} = $w->action( $c->uri_for('do_add') )->process;
     $c->stash->{template} = 'edit';
 }
 
 sub do_edit : Local {
     my ( $self, $c, $id ) = @_;
-    my $item = $self->model_item( $c,   $id );
+    die "You need to pass an id" unless $id;
     my $w    = $self->model_widget( $c, $id );
-    my $result =
-      $w->action( $c->uri_for( 'do_edit', $id ) )->embed( button('Update') )
-      ->process( $c->request );
+    my $fs = $w->element( 'Fieldset', 'Submit' );
+    $fs->element( 'Submit', 'ok' )->value('Update');
+    my $result = $w->action( $c->uri_for('do_edit') )->process( $c->request );
     if ( $result->has_errors ) {
         $c->stash->{widget}   = $result;
         $c->stash->{template} = 'edit';
     }
     else {
-        $c->stash->{item} = $item->populate_from_widget($result);
-        $c->forward('view');
+        $result->save_to_db();
+        $c->forward('view', [ $id ]);
     }
 }
 
@@ -126,15 +145,19 @@ sub edit : Local {
     my ( $self, $c, $id ) = @_;
     die "You need to pass an id" unless $id;
     my $w = $self->model_widget( $c, $id );
-    $c->stash->{widget} =
-      $w->action( $c->uri_for( 'do_edit', $id ) )->embed( button('Update') )
-      ->process;
+    my $fs = $w->element( 'Fieldset', 'Submit' );
+    $fs->element( 'Submit', 'ok' )->value('Update');
+    $c->stash->{widget} = $w->action( $c->uri_for('do_edit', $id) )->process();
     $c->stash->{template} = 'edit';
 }
 
 sub view : Local {
     my ( $self, $c, $id ) = @_;
-    $c->stash->{item} = $self->model_item( $c, $id );
+    die "You need to pass an id" unless $id;
+    my $item = $self->model_item( $c, $id );
+    $c->stash->{item} = $item;
+    my ($interface_config, $tmp) = $self->load_interface_config($c);
+    $c->stash->{column_value} = sub { column_value($interface_config, $self->source_name,  @_) };
     $c->stash->{template} = 'view';
 }
 
@@ -156,17 +179,17 @@ sub get_resultset {
 }
 
 sub create_col_link {
-    my ( $self, $c, $source ) = @_;
+    my ( $self, $interface_config, $class, $c, $source ) = @_;
     my $origparams = $c->request->params;
     my %params = %$origparams;    # So that we don't change the params for good
     delete @params{qw/o2 page/};
     my $link = '<a href="%s">%s</a>';
     return sub {
         my ( $column ) = @_;
+        my $label = $interface_config->{$class}{fields}{$column}{label};
         if ( ! $source->has_column( $column ) ){
-            return $source->__relationship_info($column)->{label};
+            return $label;
         }
-        my $label = $source->column_info($column)->{label};
         no warnings 'uninitialized';
         if ( $origparams->{'order'} eq $column && !$origparams->{'o2'} ) {
             $params{o2} = 'desc';
@@ -194,15 +217,21 @@ sub create_page_link {
 }
 
 sub column_value {
-    my ( $row, $column ) = @_;
-    my $source  = $row->result_source;
+    my ( $interface_config, $source_name, $item, $column ) = @_;
+    my $source  = $item->result_source;
     if ( $source->has_column( $column ) ){
-        return $row->$column();
+        return $item->$column();
     }
-    if ( my $meth = $source->__relationship_info($column)->{method} ){
-        return join(', ', $row->$meth);
+    if ( my $field_conf = $interface_config->{$source_name}{fields}{$column} ){
+        my $class = $field_conf->{foreign_class};
+        my $name  = $field_conf->{name};
+#        my( $meth ) = $interface_config->{$class}{displaymethod};
+        my @vals = map {"$_"} $item->$name();
+        my $display = join( ', ', @vals);
+        return $display;
     }
     warn 'Wrong column';
+    warn "source_name: $source_name\n";
 }
 
 sub list : Local {
@@ -216,14 +245,18 @@ sub list : Local {
 #    my $source     = $self->source_name;
 #    my $mld = "$model_name::Usr";
 #    $c->stash->{aaa} = $c->model('DBICSchemamodel::User')->_aaa();
-    $c->stash->{order_by_column_link} = $self->create_col_link($c, $source);
     ($c->stash->{pri}) = $source->primary_columns;
-    $c->stash->{column_value} = \&column_value;
+    my ($interface_config, $tmp) = $self->load_interface_config($c);
+    $c->stash->{order_by_column_link} = $self->create_col_link($interface_config, $self->source_name, $c, $source);
+    $c->stash->{column_value} = sub { column_value($interface_config, $self->source_name,  @_) };
     $c->stash->{result} = $result;
     $c->stash->{template} = 'list';
 }
 
-1;    # Magic true value required at end of module
+
+
+1;
+
 __END__
 
 =head1 NAME
@@ -258,6 +291,9 @@ This document describes Catalyst::Example::Controller::InstantCRUD version 0.0.1
 =head2 METHODS
 
 =over 4
+
+=item load_interface_config
+Returns the config hash for input forms (widgets) and other interface elements
 
 =item column_value
 Returns the value of the column in the row.
