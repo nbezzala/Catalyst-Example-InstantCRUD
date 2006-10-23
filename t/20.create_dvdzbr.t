@@ -17,6 +17,6 @@ copy $origtestfile, $testfile;
 
 `cd t/tmp; perl -I../../lib ../../script/instantcrud.pl -name=$app -dsn='dbi:SQLite:dbname=$testfile'`;
 
-ok( -f "t/tmp/$app/lib/DBSchema.pm", 'DBSchema creation');
+ok( -f "t/tmp/$app/lib/$app/DBSchema.pm", 'DBSchema creation');
 
 

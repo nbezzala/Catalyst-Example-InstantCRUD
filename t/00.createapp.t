@@ -25,5 +25,5 @@ chdir $tmpdir;
 `perl -I$libdir ../../script/instantcrud.pl -name=My::App -dsn='dbi:SQLite:dbname=$testfile' -noauth`;
 chdir $currdir;
 
-my $schemafile = file(qw/ t tmp My-App lib DBSchema.pm/);
+my $schemafile = file(qw/ t tmp My-App lib My App DBSchema.pm/);
 ok( -f $schemafile, 'DBSchema creation');

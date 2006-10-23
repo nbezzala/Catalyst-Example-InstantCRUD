@@ -40,3 +40,10 @@ Revision history for Catalyst-Example-InstantCRUD
 - Form config removed from the generated 'DBIx::Class'es
 - Not generating alternative controllers any more
 
+0.0.18 Mon Oct 23 13:58:40 CEST 2006
+- interface_config.dat a bit shallower
+- got rid of 'column_value' function - unwinding loops in templates
+- Schema moved to application directory (name changed)
+- HTML::Widget::DBIC published separately
+
+

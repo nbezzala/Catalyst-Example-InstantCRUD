@@ -10,49 +10,61 @@ use Catalyst::Example::InstantCRUD::Utils;
 use Data::Dumper;
 
 sub mk_compclass {
-    my ( $self, $helper, $schema, $dsn, $user, $password, $options, $attrs) = @_;
+    my ( $self, $helper, $schema, $dsn, $user, $password, $options, $attrs ) =
+      @_;
 
+    my $schemaclass = $helper->{app} . "::$schema";
     # Create the DBIC Schema Model
-    $helper->mk_component ( $helper->{app}, 'model', $helper->{name}, 'DBIC::Schema',
-      $schema, $dsn, $user, $password);
-    
-    $attrs ||= Catalyst::Example::InstantCRUD::Utils
-      ->load_schema(dsn => $dsn, user => $user, password => $password);
-      
-    $helper->mk_dir( dir( $helper->{dir}, 'lib', $schema ) );
-     
+    $helper->mk_component( $helper->{app}, 'model', $helper->{name},
+        'DBIC::Schema', $schemaclass, $dsn, $user, $password );
+
+    $attrs ||= Catalyst::Example::InstantCRUD::Utils->load_schema(
+        dsn      => $dsn,
+        user     => $user,
+        password => $password
+    );
+
+    my $schemadir = file( $helper->{file} )->parent->parent->subdir($schema);
+
+
+    $helper->mk_dir( $schemadir );
+
     # Schema classes
-    $helper->{schema} = $schema;
+    $helper->{schema} = $schemaclass;
     my @classes;
-    for my $table ( keys %{$attrs->{tables}} ) {
-	$helper->{class} = $attrs->{tables}{$table}{c};
-	$helper->{relationships} = $attrs->{rels}{$helper->{class}};
-	#my %elements = map { $_ => 1 } @{$attrs->{elems}{$helper->{class}}};
-	my %elements = map { $_ => 1 } @{$attrs->{tables}{$table}{qw/cols/}},
-	  @{$attrs->{tables}{$table}{qw/relationships/}};
-	$helper->{elements} = join ' ',  keys %elements;
-	$helper->{pks} = join ' ', @{$attrs->{tables}{$table}{pks}};
-	$helper->{overload_method} = $attrs->{tables}{$table}{overload_method};
-	$helper->{columns} = $attrs->{tables}{$table}{columns};
-	$helper->{table} = $table;
-	my $source = $attrs->{tables}{$table}{source};
-	push @classes, $source;
-	my $file = dir( $helper->{dir}, 'lib', $schema, "$source.pm" );
+    for my $table ( keys %{ $attrs->{tables} } ) {
+        $helper->{package}         = $helper->{app} . "::" . $attrs->{tables}{$table}{c};
+        $helper->{class}         = $attrs->{tables}{$table}{c};
+        $helper->{relationships} = $attrs->{rels}{ $helper->{class} };
+
+        #my %elements = map { $_ => 1 } @{$attrs->{elems}{$helper->{class}}};
+        my %elements = map { $_ => 1 } @{ $attrs->{tables}{$table}{qw/cols/} },
+          @{ $attrs->{tables}{$table}{qw/relationships/} };
+        $helper->{elements} = join ' ', keys %elements;
+        $helper->{pks}      = join ' ', @{ $attrs->{tables}{$table}{pks} };
+        $helper->{overload_method} = $attrs->{tables}{$table}{overload_method};
+        $helper->{columns}         = $attrs->{tables}{$table}{columns};
+        $helper->{table}           = $table;
+        my $source = $attrs->{tables}{$table}{source};
+        push @classes, $source;
+        my $file = dir( $schemadir, "$source.pm" );
         $helper->render_file( schemaclass => $file );
     }
+
     # Schema base class
-    my $file = dir( $helper->{dir}, 'lib', $schema, 'base.pm' );
+    my $file = dir( $schemadir, 'base.pm' );
     $helper->render_file( baseclass => $file );
+
     # Schema class
     $helper->{classes} = join ' ', @classes;
-    $file = dir( $helper->{dir}, 'lib', "$schema.pm" );
+    $file = $schemadir . ".pm";
     $helper->render_file( schema => $file );
-    
+
     return 1;
 }
 
 # No test file
-sub mk_comptest {}
+sub mk_comptest { }
 
 1;
 __DATA__
@@ -60,7 +72,7 @@ __DATA__
 =begin pod_to_ignore
 
 __schemaclass__
-package [% class %];
+package [% package %];
 
 use strict;
 use warnings;
@@ -68,7 +80,7 @@ use base qw/[% schema %]::base/;
 # Stringifies to the first primary key.
 # Change it to what makes more sense.
 # Is that value that appears in HTML Select's and things like that.
-use overload '""' => sub {$_[0]->[% overload_method %]}, fallback => 1;
+[% IF overload_method %]use overload '""' => sub {$_[0]->[% overload_method %]}, fallback => 1;[% END %]
 
 __PACKAGE__->table('[% table %]');
 __PACKAGE__->add_columns(qw/[% FOR col = columns; col; ' '; END %]/);
@@ -101,7 +113,7 @@ Catalyst::Helper::Model::InstantCRUD
 
 =head1 VERSION
 
-This document describes Catalyst::Helper::Model::InstantCRUD version 0.0.1
+This document describes Catalyst::Helper::Model::InstantCRUD 
 
 =head1 SYNOPSIS
 

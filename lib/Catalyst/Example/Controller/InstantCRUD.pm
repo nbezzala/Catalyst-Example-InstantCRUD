@@ -1,7 +1,5 @@
 package Catalyst::Example::Controller::InstantCRUD;
 
-use version; $VERSION = qv('0.0.11');
-
 use warnings;
 use strict;
 use base 'Catalyst::Base';
@@ -12,18 +10,17 @@ use HTML::Widget;
 use Path::Class;
 use HTML::Widget::DBIC;
 
+sub auto : Local {
+    my ( $self, $c ) = @_;
+    $c->stash->{additional_template_paths} = [ dir( $c->config->{root}, $self->source_name) . '', $c->config->{root} . ''];
+}
+
 sub load_interface_config {
     my ( $self, $c ) = @_;
     my $cfile = file( dir( $c->config->{root} )->parent, 'interface_config.dat' );
     my $tmp = do $cfile;
-    my $interface_config;
-    for my $class ( keys %{$tmp} ){
-        for my $field_conf ( @{$tmp->{$class}} ){
-            $interface_config->{$class}{fields}{$field_conf->{name}} = $field_conf;
-            push @{$interface_config->{$class}{field_order}}, $field_conf->{name};
-        }
-    }
-    return ( $interface_config, $tmp );
+    my $class = $self->source_name;
+    return $tmp->{$self->source_name};
 }
 
 sub source_name {
@@ -35,12 +32,11 @@ sub source_name {
 
 sub model_widget {
     my ( $self, $c, $id ) = @_;
-    my ($tmp, $interface_config) = $self->load_interface_config($c);
+    my $fieldsconfig = $self->load_interface_config($c);
     my $model_name = $c->config->{InstantCRUD}{model_name};
     my $rs = $self->model_resultset($c);
     my $item = $rs->find($id);
-    my $fieldsconfig = $interface_config->{$self->source_name};
-    my $w = HTML::Widget::DBIC->create_from_config( $fieldsconfig, $c->model($model_name), $self->source_name, $item ); 
+    my $w = HTML::Widget::DBIC->create_from_config( $fieldsconfig, $rs, $item ); 
     $w->method( 'post' );
     return $w;
 }
@@ -59,25 +55,6 @@ sub model_resultset {
     return $c->model($model_name)->resultset($source);
 }
 
-sub model_class {
-    my ( $self, $c ) = @_;
-    my $model_name = $c->config->{InstantCRUD}{model_name};
-    my $source     = $self->source_name;
-    return $c->model($model_name)->class($source);
-}
-
-sub auto : Local {
-    my ( $self, $c ) = @_;
-    $c->stash->{additional_template_paths} = [ dir( $c->config->{root}, $self->source_name) . '', $c->config->{root} . ''];
-}
-
-sub button {
-    my ($name) = @_;
-    my $w = HTML::Widget->new('button');
-    $w->element( 'Submit', 'ok' )->value($name);
-    return $w;
-}
-
 sub index : Private {
     my ( $self, $c ) = @_;
     $c->forward('list');
@@ -92,8 +69,8 @@ sub destroy : Local {
     else {
         my $w =
           $c->widget('widget')->method('post')
-          ->action( $c->uri_for( 'destroy', $id ) )
-          ->embed( button('Delete ?') );
+          ->action( $c->uri_for( 'destroy', $id ) );
+        $w->element( 'Submit', 'ok' )->value('Delete ?');
         $c->stash->{destroywidget} = $w->process;
         $c->stash->{template}      = 'destroy';
     }
@@ -156,8 +133,6 @@ sub view : Local {
     die "You need to pass an id" unless $id;
     my $item = $self->model_item( $c, $id );
     $c->stash->{item} = $item;
-    my ($interface_config, $tmp) = $self->load_interface_config($c);
-    $c->stash->{column_value} = sub { column_value($interface_config, $self->source_name,  @_) };
     $c->stash->{template} = 'view';
 }
 
@@ -179,23 +154,18 @@ sub get_resultset {
 }
 
 sub create_col_link {
-    my ( $self, $interface_config, $class, $c, $source ) = @_;
+    my ( $self, $c, $source ) = @_;
     my $origparams = $c->request->params;
-    my %params = %$origparams;    # So that we don't change the params for good
-    delete @params{qw/o2 page/};
-    my $link = '<a href="%s">%s</a>';
     return sub {
-        my ( $column ) = @_;
-        my $label = $interface_config->{$class}{fields}{$column}{label};
-        if ( ! $source->has_column( $column ) ){
-            return $label;
-        }
+        my ( $column, $label ) = @_;
+        my $addr;
         no warnings 'uninitialized';
         if ( $origparams->{'order'} eq $column && !$origparams->{'o2'} ) {
-            $params{o2} = 'desc';
+            $addr = $c->request->uri_with({ page => 1, order =>  $column, o2 => 'desc' });
+        }else{
+            $addr = $c->request->uri_with({ page => 1, order =>  $column, o2 => undef });
         }
-        $params{order} = $column;
-        my $result = sprintf $link, $c->uri_for( 'list?', \%params ), $label;
+        my $result = qq{<a href="$addr">$label</a>};
         if ( $origparams->{'order'} && $column eq $origparams->{'order'} ) {
             $result .= $origparams->{'o2'} ? "&darr;" : "&uarr;";
         }
@@ -203,52 +173,13 @@ sub create_col_link {
     };
 }
 
-sub create_page_link {
-    my ( $self, $c ) = @_;
-    my $params = $c->request->params;
-    my %params = %$params;    # So that we don't change the params for good
-    my $link = '<a href="%s">%s</a>';
-    return sub {
-        my $page = shift;
-        $params{page} = $page;
-        my $result = sprintf $link, $c->uri_for( 'list?', \%params ), $page;
-        return $result;
-      }
-}
-
-sub column_value {
-    my ( $interface_config, $source_name, $item, $column ) = @_;
-    my $source  = $item->result_source;
-    if ( $source->has_column( $column ) ){
-        return $item->$column();
-    }
-    if ( my $field_conf = $interface_config->{$source_name}{fields}{$column} ){
-        my $class = $field_conf->{foreign_class};
-        my $name  = $field_conf->{name};
-#        my( $meth ) = $interface_config->{$class}{displaymethod};
-        my @vals = map {"$_"} $item->$name();
-        my $display = join( ', ', @vals);
-        return $display;
-    }
-    warn 'Wrong column';
-    warn "source_name: $source_name\n";
-}
-
 sub list : Local {
     my ( $self, $c ) = @_;
     my $result = $self->get_resultset($c);
-    $c->stash->{page_link} = $self->create_page_link($c);
     $c->stash->{pager}     = $result->pager;
     my $source  = $result->result_source;
-#    $c->stash->{columns} = [ $result->html_columns() ];
-#    my $model_name = $c->config->{InstantCRUD}{model_name};
-#    my $source     = $self->source_name;
-#    my $mld = "$model_name::Usr";
-#    $c->stash->{aaa} = $c->model('DBICSchemamodel::User')->_aaa();
     ($c->stash->{pri}) = $source->primary_columns;
-    my ($interface_config, $tmp) = $self->load_interface_config($c);
-    $c->stash->{order_by_column_link} = $self->create_col_link($interface_config, $self->source_name, $c, $source);
-    $c->stash->{column_value} = sub { column_value($interface_config, $self->source_name,  @_) };
+    $c->stash->{order_by_column_link} = $self->create_col_link($c, $source);
     $c->stash->{result} = $result;
     $c->stash->{template} = 'list';
 }
@@ -295,14 +226,8 @@ This document describes Catalyst::Example::Controller::InstantCRUD version 0.0.1
 =item load_interface_config
 Returns the config hash for input forms (widgets) and other interface elements
 
-=item column_value
-Returns the value of the column in the row.
-
 =item get_resultset 
 Returns the resultset appriopriate for the page parameters.
-
-=item model_class
-Returns a class from the model.
 
 =item model_resultset
 Returns a resultset from the model.
@@ -313,9 +238,6 @@ Returns an item from the model.
 =item model_widget
 Returns a L<HTML::Widget> object filled with elements from the model.
 
-=item button
-Returns an L<HTML::Widget> object with a submit button.
-
 =item source_name
 Class method for finding name of corresponding database table.
 
@@ -323,9 +245,6 @@ Class method for finding name of corresponding database table.
 Method for displaying form for adding new records
 
 =item create_col_link
-Subroutine placed on stash for templates to use.
-
-=item create_page_link
 Subroutine placed on stash for templates to use.
 
 =item auto 

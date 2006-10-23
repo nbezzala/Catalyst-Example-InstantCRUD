@@ -1,6 +1,6 @@
 package Catalyst::Example::InstantCRUD;
 
-use version; $VERSION = qv('0.0.17');
+use version; $VERSION = qv('0.0.18');
 
 use warnings;
 use strict;
@@ -15,13 +15,11 @@ __END__
 
 =head1 NAME
 
-Catalyst::Example::InstantCRUD  
-
+Catalyst::Example::InstantCRUD - A CRUD scaffolding for Catalyst.
 
 =head1 VERSION
 
-This document describes Catalyst::Example::InstantCRUD version 0.0.17
-
+This document describes Catalyst::Example::InstantCRUD version 0.0.18
 
 =head1 SYNOPSIS
 

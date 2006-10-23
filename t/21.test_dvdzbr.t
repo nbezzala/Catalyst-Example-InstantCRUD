@@ -10,7 +10,7 @@ eval "use Test::WWW::Mechanize::Catalyst 'DVDzbr'";
 if ($@){
     plan skip_all => "Test::WWW::Mechanize::Catalyst required for testing application";
 }else{
-    plan tests => 27;
+    plan tests => 28;
     #plan tests => 'no_plan';
 }
 
@@ -44,6 +44,7 @@ $mech->submit_form(
     }
 );
 $mech->follow_link_ok({text => 'List'}, "Let's list them all");
+$mech->follow_link_ok({text => 'Name'}, "Let's sort them");
 $mech->content_contains("TestTag", "Yes, our tag is listed");
 
 $mech->get_ok("/user/add", "Adding a User");

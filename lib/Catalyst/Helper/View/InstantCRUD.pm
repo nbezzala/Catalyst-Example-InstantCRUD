@@ -69,12 +69,107 @@ __DATA__
 
 =begin pod_to_ignore
 
+__list__
+[% TAGS <+ +> %]
+<table>
+<tr>
+<+ FOR column = field_configs +>
+<+- IF column.widget_element.1 == 'multiple' -+>
+<th> <+ column.name +> </th>
+<+ ELSE +>
+<th> [% order_by_column_link('<+ column.name +>', '<+ column.label+>') %] </th>
+<+ END +>
+<+ END +> 
+</tr>
+[% WHILE (row = result.next) %]
+    <tr>
+    <+ FOR column = field_configs +>
+    <td>
+    <+ IF column.widget_element.1 == 'multiple' +>
+    [% FOR val = row.<+ column.name +>; val; ', '; END %]
+    <+ ELSE +>
+    [%  row.<+ column.name +> %]
+    <+ END +>
+    </td>
+    <+ END +> 
+    [% SET id = row.$pri %]
+    <td><a href="[% c.uri_for( 'view', id ) %]">View</a></td>
+    <td><a href="[% c.uri_for( 'edit', id ) %]">Edit</a></td>
+    <td><a href="[% c.uri_for( 'destroy', id ) %]">Destroy</a></td>
+    </tr>
+[% END %]
+</table>
+[% PROCESS pager %]
+<br/>
+<a href="[% c.uri_for( 'add' ) %]">Add</a>
+
+__view__
+[% TAGS <+ +> %]
+<+ FOR column = field_configs +>
+<b><+ column.label +>:</b> 
+    <+ IF column.widget_element.1 == 'multiple' +>
+    [% FOR val = item.<+ column.name +>; val; ', '; END %]
+    <+ ELSE +>
+    [%  item.<+ column.name +> %]
+    <+ END +>
+    <br/>
+<+ END +>
+<hr />
+<a href="[% c.uri_for( 'list' ) %]">List</a>
+
+
 __compclass__
 package [% class %];
 use base Catalyst::Example::Controller::InstantCRUD;
 use strict;
 
 1;
+__wrapper__
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml11.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<title>[% appname %]</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<link href="[%base%]static/pagingandsort.css" type="text/css" rel="stylesheet"/>
+<script src="[%base%]static/doubleselect.js" type="text/javascript" /></script>
+</head>
+<body>
+<div class="table_menu">
+[% PROCESS table_menu %]
+</div>
+<div class="content">
+[% content %]
+</div>
+</body>
+</html>
+__login__
+[% widget %]
+__edit__
+[% widget %]
+<br>
+<a href="[% c.uri_for( 'list' ) %]">List</a>
+__pager__
+<div id="pager">
+Results: [% pager.first %] to [% pager.last %] from [% pager.total_entries %]<br />
+[%  IF pager.last_page > 1 %]
+[%-     FOR page = [ pager.first_page .. pager.last_page ] -%]
+[%-         IF page == pager.current_page -%]
+<b>[%-          page -%]</b>
+[%-         ELSE -%]
+<a href="[% c.request.uri_with( 'page' => page )%]">[% page %]</a>
+[%-         END -%]
+&nbsp;
+[%      END -%]
+[%- END -%]
+</div>
+
+__destroy__
+[% destroywidget %]
+<br>
+<a href="[% c.uri_for( 'list' ) %]">List</a>
+
+
 __restricted__
 This is the restricted area - available only after loggin in.
 __home__
@@ -395,82 +490,6 @@ td { font: 12px Verdana, sans-serif; }
 	font-weight: normal;
         font: 12px sans-serif;
 }
-__wrapper__
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN"
-    "http://www.w3.org/TR/xhtml1/DTD/xhtml11.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml">
-<head>
-<title>[% appname %]</title>
-<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
-<link href="[%base%]static/pagingandsort.css" type="text/css" rel="stylesheet"/>
-<script src="[%base%]static/doubleselect.js" type="text/javascript" /></script>
-</head>
-<body>
-<div class="table_menu">
-[% PROCESS table_menu %]
-</div>
-<div class="content">
-[% content %]
-</div>
-</body>
-</html>
-__login__
-[% widget %]
-__edit__
-[% widget %]
-<br>
-<a href="[% c.uri_for( 'list' ) %]">List</a>
-__pager__
-<div id="pager">
-Results: [% pager.first %] to [% pager.last %] from [% pager.total_entries %]<br />
-[%  IF pager.last_page > 1 %]
-[%-     FOR page = [ pager.first_page .. pager.last_page ] -%]
-[%-         IF page == pager.current_page -%]
-<b>[%-          page -%]</b>
-[%-         ELSE -%]
-[%-             page_link(page)  -%]
-[%-         END -%]
-&nbsp;
-[%      END -%]
-[%- END -%]
-</div>
-
-__list__
-[% TAGS <+ +> %]
-<table>
-<tr>
-[% FOR column = <+ fields +> %]
-<th> [% order_by_column_link(column) %] </th>
-[% END %]
-</tr>
-[% WHILE (row = result.next) %]
-    <tr>
-    [% FOR column = <+ fields +> %]
-        <td> [% column_value(row, column) %]</td>
-    [% END %]
-    [% SET id = row.$pri %]
-    <td><a href="[% c.uri_for( 'view', id ) %]">View</a></td>
-    <td><a href="[% c.uri_for( 'edit', id ) %]">Edit</a></td>
-    <td><a href="[% c.uri_for( 'destroy', id ) %]">Destroy</a></td>
-    </tr>
-[% END %]
-</table>
-[% PROCESS pager %]
-<br/>
-<a href="[% c.uri_for( 'add' ) %]">Add</a>
-
-__view__
-[% TAGS <+ +> %]
-<+ FOR column = field_configs +>
-<b><+ column.label +>:</b> [% column_value( item, '<+ column.name +>' ) %]<br />
-<+ END +>
-<hr />
-<a href="[% c.uri_for( 'list' ) %]">List</a>
-
-__destroy__
-[% destroywidget %]
-<br>
-<a href="[% c.uri_for( 'list' ) %]">List</a>
 __END__
 
 =head1 NAME
