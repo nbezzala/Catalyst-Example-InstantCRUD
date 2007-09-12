@@ -46,6 +46,6 @@ Revision history for Catalyst-Example-InstantCRUD
 - Schema moved to application directory (name changed)
 - HTML::Widget::DBIC published separately
 
-0.0.19 Wed Sep 12 
+0.0.20 Wed Sep 12 
 - upgraded to newer versions of DBIC and other libraries
 

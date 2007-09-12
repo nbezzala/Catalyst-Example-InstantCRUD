@@ -10,6 +10,8 @@ use HTML::Widget;
 use Path::Class;
 use HTML::Widget::DBIC;
 
+use version; our $VERSION = qv('0.0.12');
+
 sub auto : Local {
     my ( $self, $c ) = @_;
     $c->stash->{additional_template_paths} = [ dir( $c->config->{root}, $self->source_name) . '', $c->config->{root} . ''];
