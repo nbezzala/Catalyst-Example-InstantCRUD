@@ -72,7 +72,7 @@ sub destroy : Local {
           ->action( $c->uri_for( 'destroy', $id ) );
         $w->element( 'Submit', 'ok' )->value('Delete ?');
         $c->stash->{destroywidget} = $w->process;
-        $c->stash->{template}      = 'destroy';
+        $c->stash->{template}      = 'destroy.tt';
     }
 }
 
@@ -84,7 +84,7 @@ sub do_add : Local {
     my $result = $w->action( $c->uri_for('do_add') )->process( $c->request );
     if ( $result->has_errors ) {
         $c->stash->{widget}   = $result;
-        $c->stash->{template} = 'edit';
+        $c->stash->{template} = 'edit.tt';
     }
     else {
         my $item = $result->save_to_db();
@@ -98,7 +98,7 @@ sub add : Local {
     my $fs = $w->element( 'Fieldset', 'Submit' );
     $fs->element( 'Submit', 'ok' )->value('Create');
     $c->stash->{widget} = $w->action( $c->uri_for('do_add') )->process;
-    $c->stash->{template} = 'edit';
+    $c->stash->{template} = 'edit.tt';
 }
 
 sub do_edit : Local {
@@ -110,7 +110,7 @@ sub do_edit : Local {
     my $result = $w->action( $c->uri_for('do_edit') )->process( $c->request );
     if ( $result->has_errors ) {
         $c->stash->{widget}   = $result;
-        $c->stash->{template} = 'edit';
+        $c->stash->{template} = 'edit.tt';
     }
     else {
         $result->save_to_db();
@@ -125,7 +125,7 @@ sub edit : Local {
     my $fs = $w->element( 'Fieldset', 'Submit' );
     $fs->element( 'Submit', 'ok' )->value('Update');
     $c->stash->{widget} = $w->action( $c->uri_for('do_edit', $id) )->process();
-    $c->stash->{template} = 'edit';
+    $c->stash->{template} = 'edit.tt';
 }
 
 sub view : Local {
@@ -133,7 +133,7 @@ sub view : Local {
     die "You need to pass an id" unless $id;
     my $item = $self->model_item( $c, $id );
     $c->stash->{item} = $item;
-    $c->stash->{template} = 'view';
+    $c->stash->{template} = 'view.tt';
 }
 
 sub get_resultset {
@@ -181,7 +181,7 @@ sub list : Local {
     ($c->stash->{pri}) = $source->primary_columns;
     $c->stash->{order_by_column_link} = $self->create_col_link($c, $source);
     $c->stash->{result} = $result;
-    $c->stash->{template} = 'list';
+    $c->stash->{template} = 'list.tt';
 }
 
 

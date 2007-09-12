@@ -147,7 +147,7 @@ sub index : Private{
     my ( $self, $c ) = @_;
     my @additional_paths = ( $c->config->{root} );
     $c->stash->{additional_template_paths} = \@additional_paths;
-    $c->stash->{template} = 'home';
+    $c->stash->{template} = 'home.tt';
 }
 
 [% IF auth %]
@@ -203,7 +203,7 @@ __config__
 name: [% name %]
 
 View::TT:
-    WRAPPER: 'wrapper'
+    WRAPPER: 'wrapper.tt'
 
 InstantCRUD:
     model_name: [% model_name %]

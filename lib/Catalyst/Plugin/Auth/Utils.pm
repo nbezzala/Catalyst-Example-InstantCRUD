@@ -112,7 +112,7 @@ sub redirect_to_login_unless_user_exists {
     if (!$c->user_exists) {
         $c->log->debug("User not found, forwarding to /$action");
         # Redirect the user to the login page
-        $c->response->redirect($c->uri_for("/$action?",
+        $c->response->redirect($c->uri_for("/$action",
           { request_uri => $c->req->uri->as_string }));
         # Return 0 to cancel 'post-auto' processing and prevent use of application
         return 0;

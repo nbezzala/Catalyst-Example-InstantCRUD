@@ -25,13 +25,13 @@ sub mk_compclass {
     for my $c (@classes) {
         $table_menu .= ' <a href="[% base %]' . lc($c) . qq{">$c</a> |};
     }
-    $helper->mk_file( file( $dir, 'table_menu' ), $table_menu );
+    $helper->mk_file( file( $dir, 'table_menu.tt' ), $table_menu );
    
     # static files
-    $helper->render_file( home => file( $dir, 'home' ) );
-    $helper->render_file( restricted => file( $dir, 'restricted' ) );
-    $helper->mk_file( file( $dir, 'wrapper' ), $helper->get_file( __PACKAGE__, 'wrapper' ) );
-    $helper->mk_file( file( $dir, 'login' ), $helper->get_file( __PACKAGE__, 'login' ) );
+    $helper->render_file( home => file( $dir, 'home.tt' ) );
+    $helper->render_file( restricted => file( $dir, 'restricted.tt' ) );
+    $helper->mk_file( file( $dir, 'wrapper.tt' ), $helper->get_file( __PACKAGE__, 'wrapper' ) );
+    $helper->mk_file( file( $dir, 'login.tt' ), $helper->get_file( __PACKAGE__, 'login' ) );
     my $staticdir = dir( $helper->{dir}, 'root', 'static' );
     $helper->mk_dir( $staticdir );
     $helper->render_file( style => file( $staticdir, 'pagingandsort.css' ) );
@@ -44,7 +44,7 @@ sub mk_compclass {
     for my $class (@classes){
         my $classdir = dir( $helper->{dir}, 'root', $class );
         $helper->mk_dir( $classdir );
-        $helper->mk_file( file( $classdir, $_ ), $helper->get_file( __PACKAGE__, $_ ) )
+        $helper->mk_file( file( $classdir, $_ . '.tt'), $helper->get_file( __PACKAGE__, $_ ) )
         for qw/edit destroy pager/;
         my @fields;
         my @field_configs;
@@ -58,8 +58,8 @@ sub mk_compclass {
         my $fields = join "', '", @fields;
         $helper->{fields} = "[ '$fields' ]";
         $helper->{field_configs} = \@field_configs;
-        $helper->render_file( list => file( $classdir, 'list' ));
-        $helper->render_file( view => file( $classdir, 'view' ));
+        $helper->render_file( list => file( $classdir, 'list.tt' ));
+        $helper->render_file( view => file( $classdir, 'view.tt' ));
     }
     return 1;
 }
@@ -99,7 +99,7 @@ __list__
     </tr>
 [% END %]
 </table>
-[% PROCESS pager %]
+[% PROCESS pager.tt %]
 <br/>
 <a href="[% c.uri_for( 'add' ) %]">Add</a>
 
@@ -136,7 +136,7 @@ __wrapper__
 </head>
 <body>
 <div class="table_menu">
-[% PROCESS table_menu %]
+[% PROCESS table_menu.tt %]
 </div>
 <div class="content">
 [% content %]

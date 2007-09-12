@@ -276,15 +276,15 @@ sub load_schema {
         for my $rel (@relationships) {
             my $info = $source->relationship_info($rel);
             push @rel_info, $info;
-            my $d = Data::Dumper->new( [ @$info{qw(class cond)} ] );
+            my $rel_class = _strip_class( $info->{class} );
+            my $d = Data::Dumper->new( [ $info->{cond} ] );
             $d->Purity(1)->Terse(1)->Deepcopy(1)->Indent(0);
+            my $rel_cond  = $d->Dump; 
             my $relationship =
               $info->{attrs}{accessor} eq 'multi' ? 'has_many' : 'belongs_to';
             push @rel_type, $relationship;
             $rels{$c} .=
-              "__PACKAGE__->$relationship('$rel', "
-              . join( ', ', $d->Dump ) . ");\n";
-
+              "__PACKAGE__->$relationship( '$rel', '$rel_class', $rel_cond );\n";
             my ( $widgettype, @args );
             if ( $info->{attrs}{accessor} eq 'multi' ) {
                 $widgettype = 'DoubleSelect';
@@ -297,7 +297,7 @@ sub load_schema {
             $config{$class}{fields}{$rel} = {
                 name             => $rel,
                 label            => _mk_label($rel),
-                foreign_class    => $info->{class},
+                foreign_class    => _strip_class( $info->{class} ),
                 'widget_element' => [ $widgettype, @args ]
             };
         }

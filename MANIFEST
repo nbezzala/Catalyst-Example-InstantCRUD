@@ -1,6 +1,5 @@
 Changes
 MANIFEST
-META.yml # Will be created by "make dist"
 Makefile.PL
 README
 script/instantcrud.pl
@@ -24,3 +23,4 @@ lib/Catalyst/Example/InstantCRUD.pm
 lib/Catalyst/Example/Controller/InstantCRUD.pm
 lib/Catalyst/Example/InstantCRUD/Utils.pm
 
+META.yml                                 Module meta-data (added by MakeMaker)
