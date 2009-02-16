@@ -6,13 +6,14 @@ eval 'exec /usr/bin/perl -w -S $0 ${1+"$@"}'
 use strict;
 use Getopt::Long;
 use Pod::Usage;
-use YAML 'LoadFile';
 use File::Spec;
 use File::Slurp;
 use Catalyst::Helper::InstantCRUD;
-use Catalyst::Example::InstantCRUD::Utils;
 use Catalyst::Utils;
 use Data::Dumper;
+use DBIx::Class::Schema::Loader qw/ make_schema_at /;
+use DBIx::Class::Schema::Loader::RelBuilder;
+use List::Util qw(first);
 
 my $help     = 0;
 my $adv_help = 0;
@@ -61,19 +62,6 @@ GetOptions(
 
 pod2usage($adv_help ? 1 : 2) if $help || $adv_help || !$appname;
 
-{
-    require DBIx::Class::Schema::Loader;
-    no strict 'refs';
-    @{"$schema_name\::ISA"} = qw/DBIx::Class::Schema::Loader/;
-    $schema_name->loader_options(relationships => 1, exclude => qr/^sqlite_sequence$/);
-}
-
-my $schema = $schema_name->connect($dsn, $duser, $dpassword);
-
-my $attrs = Catalyst::Example::InstantCRUD::Utils->load_schema($schema,
-    auth => \%auth, authz => \%authz, noauth => !$auth,
-);
-      
 # Application
 my $helper = Catalyst::Helper::InstantCRUD->new( {
     '.newfiles'   => !$nonew,
@@ -81,8 +69,8 @@ my $helper = Catalyst::Helper::InstantCRUD->new( {
     'short'       => $short,
     'model_name'  => $model_name,
     'schema_name' => $schema_name,
-    'auth'        => $attrs->{auth},
-    'authz'       => $attrs->{authz},
+    'auth'        => \%auth,
+    'authz'       => \%authz,
 } );
 
 pod2usage(1) unless $helper->mk_app( $appname );
@@ -91,21 +79,109 @@ my $appdir = $appname;
 $appdir =~ s/::/-/g;
 local $FindBin::Bin = File::Spec->catdir($appdir, 'script');
 
+make_schema_at(
+    $appname . '::' . $schema_name,
+    { 
+#        debug => 1, 
+        dump_directory => "$appdir/lib", 
+        use_namespaces => 1,
+        default_resultset_class => '+DBIx::Class::ResultSet::RecursiveUpdate', 
+    },
+    [ $dsn, $duser, $dpassword ],
+);
+
+{
+    no strict 'refs';
+    @{"$schema_name\::ISA"} = qw/DBIx::Class::Schema::Loader/;
+    $schema_name->loader_options(relationships => 1, exclude => qr/^sqlite_sequence$/);
+}
+
+my $schema = $schema_name->connect($dsn, $duser, $dpassword);
+
+my ( $m2m, $bridges ) = guess_m2m( $schema );
+for my $result_class ( keys %$m2m ){
+    my $result_source = $schema->source( $result_class );
+    my $overload_method = first { $_ =~ /name/i } $result_source->columns;
+    $overload_method ||= 'id';
+    my @path = split /::/ , $appname . '::' . $schema_name;
+    my $file = File::Spec->rel2abs( File::Spec->catfile($appdir, 'lib', @path, 'Result', $result_class . '.pm' ) );
+    my $content = File::Slurp::slurp( $file );
+    my $addition = q/use overload '""' => sub {$_[0]->/ . $overload_method . "}, fallback => 1;\n";
+    for my $m ( @{$m2m->{$result_class}} ){
+        my $a0 = $m->[0];
+        my $a1 = $m->[1];
+        my $a2 = $m->[2];
+        $addition .= "__PACKAGE__->many_to_many('$a0', '$a1' => '$a2');\n";
+    }
+    $content =~ s/1;\s*/$addition\n1;/;
+    File::Slurp::write_file( $file, $content );
+}
+
 # Controllers
 $helper->mk_component ( $appname, 'controller', 'InstantCRUD', 'InstantCRUD',
-  $schema, $attrs,
+  $schema, $m2m,
 );
 
 # Model
-$helper->mk_component ( $appname, 'model', $model_name, 'InstantCRUD', 
-  $schema_name, $dsn, $duser, $dpassword, {}, $attrs
+$helper->mk_component ( $appname, 'model', $model_name, 'DBIC::Schema', 
+  $appname . '::' . $schema_name, $dsn, $duser, $dpassword, 
 );
 
 # View and Templates
-$helper->mk_component ( $appname, 'view', 'TT', 'InstantCRUD', $attrs, $schema );
+$helper->mk_component ( $appname, 'view', 'TT', 'InstantCRUD', $schema, $m2m, $bridges );
 
-#my $tfile =  File::Spec->catdir ( $appdir, 't', 'controller_InstantCRUD.t' );
-#unlink $tfile or die "Cannot remove $tfile - the wrong test file: $!";
+sub guess_m2m {
+    my $schema = shift;
+    my %m2m;
+    my %bridges;
+    my $inflector       = DBIx::Class::Schema::Loader::RelBuilder->new;
+
+    CLASS:
+    for my $s ( $schema->sources ) {
+        my $source = $schema->source($s);
+        my $c      = $schema->class($s);
+        my @relationships = $c->relationships;
+        my @cols = $source->columns;
+        next if scalar @relationships != 2;
+        next if scalar @cols!= 2;
+        my @rclasses;
+        for my $rel (@relationships) {
+            my $info = $source->relationship_info($rel);
+            next CLASS if $info->{attrs}{accessor} eq 'multi';
+            my $rclass_name = $info->{class};
+            $rclass_name =~ /([^:]*)$/;
+            $rclass_name = $1;
+            my $rclass = $schema->class( $rclass_name );
+            my $rsource = $schema->source( $rclass_name );
+            my $found;
+            for my $rrel ( $rclass->relationships ){
+                my $rinfo = $rsource->relationship_info($rrel);
+                my $rrclass_name = $rinfo->{class};
+                $rrclass_name =~ /([^:]*)$/;
+                $rrclass_name = $1;
+                if( $rrclass_name eq $s ){
+                    $found = $rrel;
+                    last;
+                }
+            }
+            next CLASS if not $found;
+            push @rclasses, { rclass => $rclass_name, bridge => [ $found, $rel ] };
+        }
+        push @{$m2m{ $rclasses[0]->{rclass} }}, [ 
+            $inflector->_inflect_plural( $rclasses[1]->{bridge}[1] ), 
+            $rclasses[1]->{bridge}[0], 
+            $rclasses[1]->{bridge}[1] 
+        ];
+        push @{$m2m{ $rclasses[1]->{rclass} }}, [ 
+            $inflector->_inflect_plural( $rclasses[0]->{bridge}[1] ), 
+            $rclasses[0]->{bridge}[0], 
+            $rclasses[0]->{bridge}[1] 
+        ];
+        $bridges{$s} = 1;
+    }
+    return \%m2m, \%bridges;
+}
+    
 
 1;
 

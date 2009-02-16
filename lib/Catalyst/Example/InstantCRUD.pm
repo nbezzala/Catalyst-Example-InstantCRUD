@@ -1,6 +1,6 @@
 package Catalyst::Example::InstantCRUD;
 
-use version; $VERSION = qv('0.0.20');
+use version; $VERSION = qv('0.0.21');
 
 use warnings;
 use strict;
@@ -19,7 +19,7 @@ Catalyst::Example::InstantCRUD - A CRUD scaffolding for Catalyst.
 
 =head1 VERSION
 
-This document describes Catalyst::Example::InstantCRUD version 0.0.18
+This document describes Catalyst::Example::InstantCRUD version 0.0.22
 
 =head1 SYNOPSIS
 
@@ -36,7 +36,6 @@ with paging and sort for all
 tables defined in the accessed database.  
 The Create and Update forms let you manipulate also on relations
 (even many to many).
-It includes some basic authentication code.
 
 I am waiting for suggestions what else basic functionality would be nice
 to have in the generated application.
@@ -65,17 +64,11 @@ The CSS file used by the application is root/static/pagingandsort.css.
 The templates are generated in directories named after the controllers in the
 root directory.  
 
-To customize the forms used for creation and modification of records you can
-modify the interface_config.dat file generated in the application main 
-directory.  For now it's content is a dump of a perl structure. I hope it is
-enough self explanatory for some simple
-modifications.  The most basic one should be deleting some field,
-by deleting it's hash from the list, and changing the order of fields.
-
 The generated controller is a subclass of 
 Catalyst::Example::Controller::InstantCRUD. 
 You can use the standard OO technique of overriding the documented methods
 to customize and extend it.
+The form handling code is in the controller.
 
 =head1 DEPENDENCIES
 
@@ -84,32 +77,36 @@ to customize and extend it.
     including any restrictions on versions, and an indication whether
     the module is part of the standard Perl distribution, part of the
     module's distribution, or must be installed separately. ]
-        'Test::More' => 0,
-        'version'    => 0,
-        'Catalyst'      => 0,
-        'URI::Escape'   => 0,
-        'HTML::Entities' => 0,
-        'HTML::Widget' => 0,
-        'File::Spec'    => 0,
-        'Catalyst' => 5.66,
-        'Catalyst::View::TT' => 0.21,
-        'Template::Plugin::Class' => 0,
-        'Catalyst::Plugin::DefaultEnd' => 0,
-        'Catalyst::Model::DBIC' => 0,
-        'Catalyst::Helper::Model::DBIC::Schema' => 0,
-        'DBIx::Class' => 0,
-        'DBIx::Class::Schema' => 0,
-        'DBIx::Class::Loader' => 0,
-        'File::Slurp'   => 0,
+
+        'Catalyst::Runtime'                                      => '5.7000',
+        'Catalyst::Devel'                                        => '1.00',
+        'Catalyst::View::TT'                                     => '0.21',
+        'DBIx::Class'                                            => '0.08003',
+        'DBIx::Class::Schema::Loader'                            => '0.03',
+        'DBIx::Class::ResultSet::RecursiveUpdate'                => 0,
+        'Catalyst::Model::DBIC::Schema'                          => 0,
+        'Catalyst::Helper::Model::DBIC::Schema'                  => 0,
+        'Catalyst::Plugin::ConfigLoader'                         => 0,
+        'Catalyst::Plugin::Static::Simple'                       => 0,
+        'Catalyst::Plugin::Session::State::Cookie'               => 0,
+        'Catalyst::Plugin::Session::Store::FastMmap'             => 0,
+        'Rose::HTMLx::Form::DBIC'                                => 0,
+        'Rose::HTMLx::Form::DBIC::FormGenerator'                 => 0,
+        'Path::Class'                                            => 0,
+        'File::Spec'                                             => 0,
+        'File::Slurp'                                            => 0,
+        'Pod::Usage'                                             => 0,
+        'List::Util'                                             => 0,
 
 =head1 BUGS AND LIMITATIONS
+
+This is still experimental and it is a first new release 
+after a long time and substantial refactoring so treat with caution.
 
 The main generator script (instantcrud.pl) is an ugly hack.  First
 the Catalyst helpers assume where the executable is located so I had
 to fool them, second there is no API for creation of the main
 application module (My::App).
-
-The generated application shall not work for tables with composite primary keys (other than the link tables for a many to many relatioship).
 
 Please report any bugs or feature requests to
 C<bug-catalyst-example-instantcrud@rt.cpan.org>, or through the web interface at

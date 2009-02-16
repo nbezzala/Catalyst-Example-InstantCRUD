@@ -1,19 +1,18 @@
 package Catalyst::Helper::View::InstantCRUD;
 
-use version; $VERSION = qv('0.0.4');
+use version; $VERSION = qv('0.0.5');
 
 use warnings;
 use strict;
 use Carp;
 use Path::Class;
-use HTML::Widget::Element::DoubleSelect;
+use List::Util qw(first);
 
 sub mk_compclass {
-    my ( $self, $helper, $attrs, $schema) = @_;
+    my ( $self, $helper, $schema, $m2m, $bridges ) = @_;
     my @classes = map {
-        $attrs->{many_to_many_relation_table}{$schema->class($_)->table} ? () : $_
-    } @{$attrs->{classes}};
-
+        $bridges->{ $_ } ? () : $_
+    } $schema->sources;
     my $dir = dir( $helper->{dir}, 'root' );
     $helper->mk_dir($dir);
 
@@ -32,37 +31,90 @@ sub mk_compclass {
     $helper->render_file( restricted => file( $dir, 'restricted.tt' ) );
     $helper->mk_file( file( $dir, 'wrapper.tt' ), $helper->get_file( __PACKAGE__, 'wrapper' ) );
     $helper->mk_file( file( $dir, 'login.tt' ), $helper->get_file( __PACKAGE__, 'login' ) );
+    $helper->mk_file( file( $dir, 'pager.tt' ), $helper->get_file( __PACKAGE__, 'pager' ) );
+#    $helper->mk_file( file( $dir, 'destroy.tt' ), $helper->get_file( __PACKAGE__, 'destroy' ) );
     my $staticdir = dir( $helper->{dir}, 'root', 'static' );
     $helper->mk_dir( $staticdir );
     $helper->render_file( style => file( $staticdir, 'pagingandsort.css' ) );
+    $helper->render_file( formfu_style => file( $staticdir, 'formfu.css' ) );
 
     # javascript
-    $helper->mk_file( file( $staticdir, 'doubleselect.js' ),
-        HTML::Widget::Element::DoubleSelect->js_lib );
+#    $helper->mk_file( file( $staticdir, 'doubleselect.js' ),
+#        HTML::Widget::Element::DoubleSelect->js_lib );
     
     # templates
     for my $class (@classes){
-        my $classdir = dir( $helper->{dir}, 'root', $class );
+        my $classdir = dir( $helper->{dir}, 'root', lc $class );
         $helper->mk_dir( $classdir );
         $helper->mk_file( file( $classdir, $_ . '.tt'), $helper->get_file( __PACKAGE__, $_ ) )
-        for qw/edit destroy pager/;
-        my @fields;
-        my @field_configs;
-#        warn "fconf: " . Dumper(@{$attrs->{config}{$class}{fields}});
-        for my $fconf ( @{$attrs->{config}{$class}} ){
-            if( $fconf->{widget_element} and !( $fconf->{widget_element}[0] eq 'Password') ) {
-                push @fields, $fconf->{name};
-                push @field_configs, $fconf;
-            }
-        }
-        my $fields = join "', '", @fields;
-        $helper->{fields} = "[ '$fields' ]";
-        $helper->{field_configs} = \@field_configs;
+        for qw/edit destroy/;
+        $helper->{field_configs} = _get_column_config( $schema, $class, $m2m ) ;
+        my $source = $schema->source($class);
+        $helper->{primary_keys} = [ $source->primary_columns ];
         $helper->render_file( list => file( $classdir, 'list.tt' ));
         $helper->render_file( view => file( $classdir, 'view.tt' ));
     }
     return 1;
 }
+sub _mk_label {
+    my $name = shift;
+    return join ' ', map { ucfirst } split '_', $name;
+}
+
+sub _get_column_config {
+    my( $schema, $class, $m2m ) = @_;
+    my @configs;
+    my $source = $schema->source($class);
+    my %bridge_cols;
+    for my $rel ( $source->relationships ) {
+        my $info = $source->relationship_info($rel);
+        $bridge_cols{$_} = 1 for  _get_self_cols( $info->{cond} );
+        $m2m->{$class} and next if first { $_->[1] eq $rel } @{$m2m->{$class}};
+        my $config = {
+            name => $rel,
+            label => _mk_label( $rel ),
+        };
+        $config->{multiple} = 1 if $info->{attrs}{accessor} eq 'multi';
+        push @configs, $config;
+    }
+    for my $column ( $source->columns ) {
+        next if $bridge_cols{$column};
+        push @configs, {
+            name => $column,
+            label => _mk_label( $column ),
+        };
+    }
+    if( $m2m->{$class} ) {
+        for my $m ( @{$m2m->{$class}} ){
+            push @configs, {
+                name => $m->[0],
+                label => _mk_label( $m->[0] ),
+                multiple => 1,
+            };
+        }
+    }
+    return \@configs;
+}
+
+sub _get_self_cols{
+    my $cond = shift;
+    my @cols;
+    if ( ref $cond eq 'ARRAY' ){
+        for my $c1 ( @$cond ){
+            push @cols, get_self_cols( $c1 );
+        }
+    }
+    elsif ( ref $cond eq 'HASH' ){
+        for my $key ( values %{$cond} ){
+            if( $key =~ /self\.(.*)/ ){
+                push @cols, $1;
+            }
+        }
+    }
+    return @cols;
+}
+
+
 
 1; # Magic true value required at end of module
 __DATA__
@@ -74,7 +126,7 @@ __list__
 <table>
 <tr>
 <+ FOR column = field_configs +>
-<+- IF column.widget_element.1 == 'multiple' -+>
+<+- IF column.multiple -+>
 <th> <+ column.name +> </th>
 <+ ELSE +>
 <th> [% order_by_column_link('<+ column.name +>', '<+ column.label+>') %] </th>
@@ -85,7 +137,7 @@ __list__
     <tr>
     <+ FOR column = field_configs +>
     <td>
-    <+ IF column.widget_element.1 == 'multiple' +>
+    <+ IF column.multiple +>
     [% FOR val = row.<+ column.name +>; val; ', '; END %]
     <+ ELSE +>
     [%  row.<+ column.name +> %]
@@ -93,27 +145,29 @@ __list__
     </td>
     <+ END +> 
     [% SET id = row.$pri %]
-    <td><a href="[% c.uri_for( 'view', id ) %]">View</a></td>
-    <td><a href="[% c.uri_for( 'edit', id ) %]">Edit</a></td>
-    <td><a href="[% c.uri_for( 'destroy', id ) %]">Destroy</a></td>
+    <td><a href="[% c.uri_for( 'view', <+ FOR key = primary_keys +>row.<+ key +>, <+ END +> ) %]">View</a></td>
+    <td><a href="[% c.uri_for( 'edit', <+ FOR key = primary_keys +>row.<+ key +>, <+ END +> ) %]">Edit</a></td>
+    <td><a href="[% c.uri_for( 'destroy', <+ FOR key = primary_keys +>row.<+ key +>, <+ END +> ) %]">Destroy</a></td>
     </tr>
 [% END %]
 </table>
 [% PROCESS pager.tt %]
 <br/>
-<a href="[% c.uri_for( 'add' ) %]">Add</a>
+<a href="[% c.uri_for( 'edit' ) %]">Add</a>
 
 __view__
 [% TAGS <+ +> %]
 <+ FOR column = field_configs +>
 <b><+ column.label +>:</b> 
-    <+ IF column.widget_element.1 == 'multiple' +>
+    <+ IF column.multiple +>
     [% FOR val = item.<+ column.name +>; val; ', '; END %]
     <+ ELSE +>
     [%  item.<+ column.name +> %]
     <+ END +>
     <br/>
 <+ END +>
+<hr />
+<a href="[% c.uri_for( 'edit', <+ FOR key = primary_keys +>item.<+ key +>, <+ END +> ) %]">Edit</a>
 <hr />
 <a href="[% c.uri_for( 'list' ) %]">List</a>
 
@@ -132,6 +186,7 @@ __wrapper__
 <title>[% appname %]</title>
 <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
 <link href="[%base%]static/pagingandsort.css" type="text/css" rel="stylesheet"/>
+<link href="[%base%]static/formfu.css" type="text/css" rel="stylesheet"/>
 <script src="[%base%]static/doubleselect.js" type="text/javascript" /></script>
 </head>
 <body>
@@ -149,6 +204,8 @@ __edit__
 [% widget %]
 <br>
 <a href="[% c.uri_for( 'list' ) %]">List</a>
+<hr>
+[% form.html_table %]
 __pager__
 <div id="pager">
 Results: [% pager.first %] to [% pager.last %] from [% pager.total_entries %]<br />
@@ -490,6 +547,206 @@ td { font: 12px Verdana, sans-serif; }
 	font-weight: normal;
         font: 12px sans-serif;
 }
+__formfu_style__
+
+fieldset {
+	padding: 1em;
+}
+
+fieldset .button,
+fieldset .checkbox,
+fieldset .contentbutton,
+fieldset .file,
+fieldset .image,
+fieldset .multi,
+fieldset .password,
+fieldset .radio,
+fieldset .reset,
+fieldset .select,
+fieldset .submit,
+fieldset .text,
+fieldset .textarea
+{
+	display: block;
+	clear: left;
+	border: 0;
+	margin: 1px;
+	/* when no label */
+	margin-left: 12em;
+}
+
+fieldset .button.label,
+fieldset .checkbox.label,
+fieldset .contentbutton.label,
+fieldset .file.label,
+fieldset .image.label,
+fieldset .multi.label,
+fieldset .password.label,
+fieldset .radio.label,
+fieldset .reset.label,
+fieldset .select.label,
+fieldset .submit.label,
+fieldset .text.label,
+fieldset .textarea.label
+{
+	margin-left: 1px;
+}
+
+fieldset .error.label {
+	/* border + margin swap values with above, to ensure rows align */
+	border: 1px #fff;
+	margin: 0;
+}
+
+fieldset .error_message {
+       display: block;
+       color: #ff0000;
+}
+
+fieldset .label .error_message {
+       /* padding-left eq label width + padding-right */
+       padding-left: 12em;
+}
+
+fieldset .error input,
+fieldset .error textarea,
+fieldset .error select {
+       background-color: #ffdddd;
+}
+
+fieldset .button label,
+fieldset .contentbutton label,
+fieldset .checkbox label,
+fieldset .file label,
+fieldset .image label,
+fieldset .multi label,
+fieldset .password label,
+fieldset .radio label,
+fieldset .radiogroup label,
+fieldset .select label,
+fieldset .text label,
+fieldset .textarea label
+{
+	display: inline;
+	float: left;
+	width: 11em;
+	text-align: right;
+	padding-right: 1em;
+}
+
+fieldset .radiogroup span label {
+	/* undo the above style */
+	float: none;
+	width: auto;
+	text-align: left;
+	padding-right: 0;
+}
+
+fieldset .multi .elements {
+	display: block;
+	float: left;
+}
+
+fieldset .multi .elements label {
+	display: block;
+	width: auto;
+	padding-right: 0.25em;
+}
+
+fieldset .multi input,
+fieldset .multi select {
+	display: block;
+	float: left;
+	margin-right: 0.5em;
+}
+
+fieldset.checkboxgroup,
+fieldset.radiogroup
+{
+	margin: 0;
+	margin-left: 12em;
+	padding: 0;
+	width: auto;
+}
+
+fieldset.radiogroup.label {
+	border: 0;
+	margin-left: 0em;
+}
+
+fieldset .comment .comment {
+	/* when no label */
+	display: block;
+	margin-left: 0em;
+}
+
+fieldset .label .comment {
+	display: block;
+	margin-left: 12em;
+}
+
+/*** Alternative Layouts ***/
+
+fieldset .notes {
+	float: right;
+	width: 30%;
+	border: 1px dotted;
+}
+
+fieldset .multi.vertical input,
+fieldset.checkboxgroup.vertical input,
+fieldset.radiogroup.vertical input
+{
+	display: block;
+	float: left;
+	clear: left;
+}
+
+fieldset .multi.vertical select {
+	display: block;
+	float: left;
+	clear: right;
+}
+
+fieldset.checkboxgroup.vertical label,
+fieldset.radiogroup.vertical label
+{
+	display: block;
+	clear: right;
+}
+
+fieldset.radiogroup.vertical .subgroup {
+	float: left;
+}
+
+fieldset .fullwidth label
+{
+	display: block;
+	float: left;
+	width: auto;
+	text-align: left;
+}
+
+fieldset .fullwidth .error_message {
+       padding-left: 0em;
+}
+
+fieldset .fullwidth textarea
+{
+	display: block;
+	clear: left;
+	width: 30em;
+}
+
+fieldset .dojoeditor2 .RichTextEditable { /* Dojo::Editor2 */
+	display: inline;
+	float: left;
+	background-color: #ffc;
+	padding-bottom: 0.1em;
+}
+
+
+
 __END__
 
 =head1 NAME

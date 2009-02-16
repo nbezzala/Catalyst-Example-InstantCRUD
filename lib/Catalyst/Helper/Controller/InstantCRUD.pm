@@ -1,131 +1,49 @@
 package Catalyst::Helper::Controller::InstantCRUD;
 
-use version; $VERSION = qv('0.0.7');
+use version; $VERSION = qv('0.0.8');
 
 use warnings;
 use strict;
 use Path::Class;
 use Data::Dumper;
+use Rose::HTMLx::Form::DBIC::FormGenerator;
 
 sub mk_compclass {
-    my ( $self, $helper, $schema, $attrs) = @_;
+    my ( $self, $helper, $schema, $m2m) = @_;
     
+    my $dir = dir( $helper->{dir}, 'root' );
+    $helper->mk_dir($dir);
     # controllers
     my @source_monikers = $schema->sources;
     for my $class( @source_monikers ) {
-        $helper->{class} = $helper->{app} . '::Controller::' . $class;
-        (my $file = $helper->{file})  =~ s/InstantCRUD/$class/;
-        $helper->{columns} = [ _getcolumns( $schema->source($class) ) ];
-        $helper->{belongsto} = [ _getbelongsto( $schema->source($class) ) ];
-        $helper->{relations} = [ _getrelations( $schema->source($class), $attrs ) ];
-        $helper->render_file( compclass => $file );
-#        $helper->render_file( altcompclass => $file );
-#        $helper->render_file( altcompclass => $file . '.alt' );
+        mk_controller( $helper, $class, $schema, $m2m );
     }
-    my $interface_config_file = file( $helper->{dir}, 'interface_config.dat' );
-    my $interface_config = Dumper( $attrs->{config} );
-    $helper->mk_file( $interface_config_file, $interface_config);
 }
 
-sub _getrelations {
-    my ($table, $attrs) = @_;
-    my @columns;
-    my $inflector = DBIx::Class::Schema::Loader::RelBuilder->new;
-    my %mmrels;
-    for my $mmrel ( keys %{$attrs->{many_to_many_relation_table}} ){
-        $mmrels{$inflector->_inflect_plural($mmrel)} = $attrs->{many_to_many_relation_table}{$mmrel};
-    }
-    my $relatedclass;
-    for my $col ($table->relationships){
-        next if $table->has_column($col);
-        if( defined $mmrels{$col} ){
-            my @m2m = @{$mmrels{$col}};
-            if ($m2m[0] eq $table->name){
-                $col = $m2m[1];
-            }else{
-                $col = $m2m[2];
-            }
-            $relatedclass = ucfirst $col;  #horrible
-            $col = $inflector->_inflect_plural($col); #horror
-        }else{
-            my $info = $table->relationship_info( $col );
-            $relatedclass = $info->{class};
-        }
-
-        my $label = join ' ', map { ucfirst } split '_', $col;
-        push @columns, {widgettype => 'DoubleSelect', name => $col, label => $label, relatedclass => $relatedclass };
-    }
-    return @columns;
+sub mk_controller {
+    my( $helper, $class, $schema, $m2m ) = @_;
+    $helper->{class} = $helper->{app} . '::Controller::' . $class;
+    (my $file = $helper->{file})  =~ s/InstantCRUD/$class/;
+    my $generator = Rose::HTMLx::Form::DBIC::FormGenerator->new( 
+        schema => $schema, 
+        class_prefix => $helper->{class}, 
+        style => 'single', 
+        m2m => $m2m,
+    );
+    $helper->{form_code} = $generator->generate_form( $class );
+    $helper->render_file( compclass => $file );
 }
 
-sub _getbelongsto {
-    my $table = shift;
-    my @columns;
-    for my $col ($table->columns){
-        next if !$table->relationship_info($col);
-        my $info = $table->column_info($col);
-        my $label = $info->{label} || join ' ', map { ucfirst } split '_', $col;
-        push @columns, {widgettype => 'Select', name => $col, label => $label };
-    }
-    return @columns;
+
+
+sub _strip_class {
+    my $fullclass = shift;
+    my @parts     = split /::/, $fullclass;
+    my $class     = pop @parts;
+    return $class;
 }
 
-sub _getcolumns {
-    my $table = shift;
-    my @columns;
-    my %primary_columns = map {$_ => 1} $table->primary_columns;
-    for my $col ($table->columns){
-        my $info = $table->column_info($col);
-        next if $info->{is_auto_increment};
-        next if $primary_columns{$col};
-        next if $table->relationship_info($col);
-        my $size = $info->{size} || 40;
-        my $label = $info->{label} || join ' ', map { ucfirst } split '_', $col;
-        my ( $widgettype, @constraints);
-        if ( $info->{data_type} =~ /int/i ) {
-            push @constraints,  {
-                constraint => 'Integer',
-                message => 'Should be a number',
-            }
-        } elsif ( $info->{size} ) {
-            push @constraints,  {
-                constraint => 'Length',
-                message => "Should be shorten than $info->{size} characters",
-                method => 'max',
-                arg    => $info->{size},
-            };
-        }
-        if ( !$info->{is_nullable} && !$info->{is_auto_increment}){
-            push @constraints,  {
-                constraint => 'All',
-                message => "The field is required",
-            }
-        }
-        if ( $col =~ /password|passwd/ ) {
-            $size = 40 if $size > 40;
-            $widgettype = 'Password';
-           push @constraints,  {
-                constraint => 'Equal',
-                args => "$col\_2",
-                message => "Passwords must match",
-            }, {
-                constraint => 'AllOrNone',
-                args => "$col\_2", 
-                message => "Confirm the password",
-            };
-            push @columns, {widgettype => $widgettype, name => $col, label => $label, size => $size, constraints => \@constraints};
-            push @columns, {widgettype => $widgettype, name => $col .'_2', label => $label, size => $size, constraints => \@constraints};
-         }else{
-            if( $size > 80 ){
-                $widgettype = 'Textarea';
-            }else{
-                $widgettype = 'Textfield';
-            } 
-            push @columns, {widgettype => $widgettype, name => $col, label => $label, size => $size, constraints => \@constraints};
-        }
-    }
-    return @columns;
-}
+
 
 1; # Magic true value required at end of module
 __DATA__
@@ -134,72 +52,13 @@ __DATA__
 
 __compclass__
 package [% class %];
-use base Catalyst::Example::Controller::InstantCRUD;
+use base "Catalyst::Example::Controller::InstantCRUD";
 use strict;
 
-1;
-__altcompclass__
-package [% class %];
-use base Catalyst::Example::Controller::InstantCRUD;
-use strict;
-
-sub model_widget {
-    my ( $self, $c, $id ) = @_;
-    my $item = $self->model_item( $c, $id ) if $id;
-    my $table = $self->model_resultset( $c )->result_source();
-    my $w = HTML::Widget->new();
-    my ($element, $info, @options, $relatedclass, $ref_pk, $const);
-    [% FOR col = columns %]
-      $element = $w->element( '[% col.widgettype %]', '[% col.name %]' );
-      $element->label( '[% col.label%]' );
-      $element->value( $item->[% col.name %] ) if $id;
-      [% IF col.widgettype == 'Textfield' %]
-        $element->size([% col.size %]);
-        $element->maxlength([% col.size %]);
-      [% END %]
-      [% FOR const = col.constraints %]
-        $const = $w->constraint( '[% const.constraint %]', '[% col.name %]' [% IF const.args %] , '[% const.args %]' [% END %] )->message( '[% const.message %]' );
-        [% IF const.method %]
-        $const->[% const.method %]([% const.arg %]);
-        [% END %]
-      [% END %]
-    [% END %]
-    my $model = $c->model($c->config->{InstantCRUD}{model_name});
-    [% FOR col = belongsto %]
-      $element = $w->element( '[% col.widgettype %]', '[% col.name %]' );
-      $element->label( '[% col.label%]' );
-      @options = ( 0, '' );
-      $info = $table->relationship_info('[% col.name %]');
-      $relatedclass = $model->resultset($info->{source});
-      $ref_pk = ( $relatedclass->result_source->primary_columns ) [0];
-      for my $ref_item ( $relatedclass->search() ){
-          push @options, $ref_item->$ref_pk, "$ref_item"; 
-      }
-      $element->options(@options);
-      $element->selected( $item->[% col.name %] ) if $id;
-    [% END %]
-    [% FOR col = relations %]
-      $element = $w->element( '[% col.widgettype %]', '[% col.name %]' );
-      $element->label( '[% col.label%]' );
-      $element->multiple(1)->size(5);
-      @options = ( 0, '' );
-      $relatedclass = $model->resultset('[% col.relatedclass %]');
-      $ref_pk = ( $relatedclass->result_source->primary_columns ) [0];
-      for my $ref_item ( $relatedclass->search() ){
-          push @options, $ref_item->$ref_pk, "$ref_item"; 
-      }
-      $element->options(@options);
-      if ( $id ) {
-          my @selected = $item->[% col.name %]();
-          $element->selected(
-              [ @selected ? map( $_->$ref_pk, @selected ) : 0 ] );
-      } 
-      $element->selected( $item->[% col.name %] ) if $id;
-    [% END %]
-    return HTML::Widget->new('widget')->method('post')->embed($w);
-}
+[% form_code %]
 
 1;
+
 __END__
 
 =head1 NAME
@@ -233,6 +92,8 @@ This document describes Catalyst::Helper::Controller::InstantCRUD version 0.0.1
 =over 4
 
 =item mk_compclass
+
+=item mk_controller
 
 =back
 

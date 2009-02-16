@@ -46,18 +46,16 @@ use Catalyst qw/
 	-Debug
 	ConfigLoader
 	Static::Simple
-	StackTrace
-	HTML::Widget
 [% IF auth -%]
-	Authentication
-	Authentication::Store::DBIC
-	Authentication::Credential::Password
-	Auth::Utils
 [% END -%]
-	Session
-	Session::Store::FastMmap
-	Session::State::Cookie
 /;
+#	Session
+#	Session::Store::FastMmap
+#	Session::State::Cookie
+#	Authentication
+#	Authentication::Store::DBIC
+#	Authentication::Credential::Password
+#	Auth::Utils
 
 our $VERSION = '0.01';
 
@@ -156,9 +154,9 @@ sub index : Private{
 Action available only for logged in users.  Checks if user is logged in, if not, forwards to login page.
 =cut
 
-sub restricted : Local : ActionClass('Auth::Check') {
-    my ( $self, $c ) = @_;
-}
+# sub restricted : Local : ActionClass('Auth::Check') {
+#     my ( $self, $c ) = @_;
+# }
 
 
 =head2 login
@@ -167,7 +165,7 @@ Login logic
 
 =cut
 
-sub login : Local : ActionClass('Auth::Login') {}
+# sub login : Local : ActionClass('Auth::Login') {}
 
 =head2 logout
 
@@ -175,7 +173,7 @@ Logout logic
 
 =cut
 
-sub logout : Local : ActionClass('Auth::Logout') {}
+# sub logout : Local : ActionClass('Auth::Logout') {}
 [% END %]
 
 =head2 end
@@ -209,24 +207,6 @@ InstantCRUD:
     model_name: [% model_name %]
     schema_name: [% schema_name %]
     maxrows: 10
-[% IF auth %]
-authentication:
-    dbic:
-        failled_logon_message: 'Bad username or password.'
-        user_class: [% model_name %]::[% auth.user_class %]
-        user_field: [% auth.user_field %]
-        password_field: [% auth.password_field %]
-        password_type: [% auth.password_type %]
-        password_hash_type: [% auth.password_hash_type %]
-[% END; IF authz %]
-authorization:
-    dbic:
-        role_class: [% model_name %]::[% authz.role_class %]
-        role_source: [% authz.role_class %]
-        role_field: [% authz.role_field %]
-        role_rel: [% authz.role_rel %]
-        user_role_user_field: [% authz.user_role_user_field %]
-[% END %]
 __END__
 
 =head1 NAME

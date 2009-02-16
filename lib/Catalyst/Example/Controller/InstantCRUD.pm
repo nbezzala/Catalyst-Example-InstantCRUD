@@ -2,27 +2,18 @@ package Catalyst::Example::Controller::InstantCRUD;
 
 use warnings;
 use strict;
-use base 'Catalyst::Base';
+use base 'Catalyst::Controller';
 
 use Carp;
 use Data::Dumper;
-use HTML::Widget;
 use Path::Class;
-use HTML::Widget::DBIC;
+use Rose::HTMLx::Form::DBIC;
 
-use version; our $VERSION = qv('0.0.12');
+use version; our $VERSION = qv('0.0.14');
 
 sub auto : Local {
     my ( $self, $c ) = @_;
-    $c->stash->{additional_template_paths} = [ dir( $c->config->{root}, $self->source_name) . '', $c->config->{root} . ''];
-}
-
-sub load_interface_config {
-    my ( $self, $c ) = @_;
-    my $cfile = file( dir( $c->config->{root} )->parent, 'interface_config.dat' );
-    my $tmp = do $cfile;
-    my $class = $self->source_name;
-    return $tmp->{$self->source_name};
+    $c->stash->{additional_template_paths} = [ dir( $c->config->{root}, lc $self->source_name) . '', $c->config->{root} . ''];
 }
 
 sub source_name {
@@ -32,21 +23,10 @@ sub source_name {
     return $1;
 }
 
-sub model_widget {
-    my ( $self, $c, $id ) = @_;
-    my $fieldsconfig = $self->load_interface_config($c);
-    my $model_name = $c->config->{InstantCRUD}{model_name};
-    my $rs = $self->model_resultset($c);
-    my $item = $rs->find($id);
-    my $w = HTML::Widget::DBIC->create_from_config( $fieldsconfig, $rs, $item ); 
-    $w->method( 'post' );
-    return $w;
-}
-
 sub model_item {
-    my ( $self, $c, $id ) = @_;
+    my ( $self, $c, @pks ) = @_;
     my $rs = $self->model_resultset($c);
-    my $item = defined $id ? $rs->find($id) : $rs->new( {} );
+    my $item = scalar @pks ? $rs->find( @pks, { key => 'primary' }) : $rs->new( {} );
     return $item;
 }
 
@@ -59,83 +39,54 @@ sub model_resultset {
 
 sub index : Private {
     my ( $self, $c ) = @_;
+    $c->stash->{template} = lc( $self->source_name ) . '/list.tt';
     $c->forward('list');
 }
 
 sub destroy : Local {
-    my ( $self, $c, $id ) = @_;
+    my ( $self, $c, @pks ) = @_;
     if ( $c->req->method eq 'POST' ) {
-        $self->model_item( $c, $id )->delete;
+        $self->model_item( $c, @pks )->delete;
         $c->forward('list');
     }
     else {
-        my $w =
-          $c->widget('widget')->method('post')
-          ->action( $c->uri_for( 'destroy', $id ) );
-        $w->element( 'Submit', 'ok' )->value('Delete ?');
-        $c->stash->{destroywidget} = $w->process;
-        $c->stash->{template}      = 'destroy.tt';
-    }
-}
-
-sub do_add : Local {
-    my ( $self, $c ) = @_;
-    my $w = $self->model_widget( $c );
-    my $fs = $w->element( 'Fieldset', 'Submit' );
-    $fs->element( 'Submit', 'ok' )->value('Create');
-    my $result = $w->action( $c->uri_for('do_add') )->process( $c->request );
-    if ( $result->has_errors ) {
-        $c->stash->{widget}   = $result;
-        $c->stash->{template} = 'edit.tt';
-    }
-    else {
-        my $item = $result->save_to_db();
-        $c->forward( 'view', [ $item->id ] );
-    }
-}
-
-sub add : Local {
-    my ( $self, $c ) = @_;
-    my $w = $self->model_widget($c);
-    my $fs = $w->element( 'Fieldset', 'Submit' );
-    $fs->element( 'Submit', 'ok' )->value('Create');
-    $c->stash->{widget} = $w->action( $c->uri_for('do_add') )->process;
-    $c->stash->{template} = 'edit.tt';
-}
-
-sub do_edit : Local {
-    my ( $self, $c, $id ) = @_;
-    die "You need to pass an id" unless $id;
-    my $w    = $self->model_widget( $c, $id );
-    my $fs = $w->element( 'Fieldset', 'Submit' );
-    $fs->element( 'Submit', 'ok' )->value('Update');
-    my $result = $w->action( $c->uri_for('do_edit') )->process( $c->request );
-    if ( $result->has_errors ) {
-        $c->stash->{widget}   = $result;
-        $c->stash->{template} = 'edit.tt';
-    }
-    else {
-        $result->save_to_db();
-        $c->forward('view', [ $id ]);
+        my $action_uri = $c->uri_for( 'destroy', @pks);
+        $c->stash->{destroywidget} = <<END;
+<form action="$action_uri" id="widget" method="post">
+<fieldset class="widget_fieldset">
+<input class="submit" id="widget_ok" name="ok" type="submit" value="Delete ?" />
+</fieldset>
+</form>
+END
     }
 }
 
 sub edit : Local {
-    my ( $self, $c, $id ) = @_;
-    die "You need to pass an id" unless $id;
-    my $w = $self->model_widget( $c, $id );
-    my $fs = $w->element( 'Fieldset', 'Submit' );
-    $fs->element( 'Submit', 'ok' )->value('Update');
-    $c->stash->{widget} = $w->action( $c->uri_for('do_edit', $id) )->process();
-    $c->stash->{template} = 'edit.tt';
+    my ( $self, $c, @pks ) = @_; 
+    my $form_name = ref( $self ) . '::' . $self->source_name . 'Form';
+    my $form = $form_name->new();
+    my $rs = $self->model_resultset($c);
+    my $processor = Rose::HTMLx::Form::DBIC->new( form => $form, rs => $rs );
+    my $params = $c->req->params;
+    $processor->init_params( $params );
+    if( $c->req->method eq 'POST' and $form->was_submitted ){
+        if( my $item = $processor->dbic_from_form(@pks) ){
+            $c->res->redirect( $c->uri_for( 'view', $item->id ) );
+            $c->stash( item => $item );
+        }
+    }
+    else {
+        $processor->init_from_dbic(@pks) if scalar @pks;
+    }
+    $c->stash( form => $form );
 }
 
 sub view : Local {
-    my ( $self, $c, $id ) = @_;
-    die "You need to pass an id" unless $id;
-    my $item = $self->model_item( $c, $id );
+    my ( $self, $c, @pks ) = @_;
+    die "You need to pass an id" unless @pks;
+    my $item = $self->model_item( $c, @pks );
     $c->stash->{item} = $item;
-    $c->stash->{template} = 'view.tt';
+#    $c->stash->{template} = 'view.tt';
 }
 
 sub get_resultset {
@@ -183,7 +134,7 @@ sub list : Local {
     ($c->stash->{pri}) = $source->primary_columns;
     $c->stash->{order_by_column_link} = $self->create_col_link($c, $source);
     $c->stash->{result} = $result;
-    $c->stash->{template} = 'list.tt';
+#    $c->stash->{template} = 'list.tt';
 }
 
 
@@ -199,7 +150,7 @@ Catalyst::Example::Controller::InstantCRUD - Catalyst CRUD example Controller
 
 =head1 VERSION
 
-This document describes Catalyst::Example::Controller::InstantCRUD version 0.0.1
+This document describes Catalyst::Example::Controller::InstantCRUD version 0.0.14
 
 
 =head1 SYNOPSIS
@@ -236,9 +187,6 @@ Returns a resultset from the model.
 
 =item model_item
 Returns an item from the model.
-
-=item model_widget
-Returns a L<HTML::Widget> object filled with elements from the model.
 
 =item source_name
 Class method for finding name of corresponding database table.

@@ -1,6 +1,6 @@
 use strict;
 use warnings;
-use Test::More tests => 1;
+use Test::More tests => 2;
 use Path::Class;
 use File::Path;
 use File::Copy;
@@ -25,5 +25,6 @@ chdir $tmpdir;
 `perl -I$libdir ../../script/instantcrud.pl -name=My::App -dsn='dbi:SQLite:dbname=$testfile' -noauth`;
 chdir $currdir;
 
-my $schemafile = file(qw/ t tmp My-App lib My App DBSchema.pm/);
-ok( -f $schemafile, 'DBSchema creation');
+ok( -f file(qw/ t tmp My-App lib My App DBSchema.pm/), 'DBSchema creation');
+ok( -f file( qw/ t tmp My-App lib My App Controller Usr.pm / ), 'Controller for "User" created');
+
