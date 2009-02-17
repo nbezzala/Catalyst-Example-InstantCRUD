@@ -15,7 +15,7 @@ my $origtestfile = file('t', 'var', "$lcapp.db")->absolute;
 
 copy $origtestfile, $testfile;
 
-`cd t/tmp; perl -I../../lib ../../script/instantcrud.pl -name=$app -dsn='dbi:SQLite:dbname=$testfile'`;
+`cd t/tmp; $^X -I../../lib ../../script/instantcrud.pl -name=$app -dsn='dbi:SQLite:dbname=$testfile'`;
 
 ok( -f "t/tmp/$app/lib/$app/DBSchema.pm", 'DBSchema creation');
 

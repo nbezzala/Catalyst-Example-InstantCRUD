@@ -17,12 +17,12 @@ copy $origtestfile, $testfile;
 my $tmpdir = dir(qw/ t tmp/);
 my $libdir = dir(dir()->parent->parent, 'lib');
 my $instant = file(dir()->parent->parent, 'script', 'instantcrud.pl');
-my $line = "cd $tmpdir; perl -I$libdir ../../script/instantcrud.pl -name=My::App -dsn='dbi:SQLite:dbname=$testfile' -noauth";
+my $line = "cd $tmpdir; $^X -I$libdir ../../script/instantcrud.pl -name=My::App -dsn='dbi:SQLite:dbname=$testfile' -noauth";
 warn $line;
 
 my $currdir = dir()->absolute;
 chdir $tmpdir;
-`perl -I$libdir ../../script/instantcrud.pl -name=My::App -dsn='dbi:SQLite:dbname=$testfile' -noauth`;
+`$^X -I$libdir ../../script/instantcrud.pl -name=My::App -dsn='dbi:SQLite:dbname=$testfile' -noauth`;
 chdir $currdir;
 
 ok( -f file(qw/ t tmp My-App lib My App DBSchema.pm/), 'DBSchema creation');
