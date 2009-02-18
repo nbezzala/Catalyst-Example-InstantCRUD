@@ -10,8 +10,8 @@ my $lcapp = lc $app;
 
 rmtree( ["t/tmp/$app", "t/tmp/$lcapp.db"] );
 
-my $testfile = file('t', 'tmp', "$lcapp.db")->absolute;
-my $origtestfile = file('t', 'var', "$lcapp.db")->absolute;
+my $testfile = file('t', 'tmp', "$lcapp.db")->absolute->stringify;
+my $origtestfile = file('t', 'var', "$lcapp.db")->absolute->stringify;
 
 copy $origtestfile, $testfile;
 
