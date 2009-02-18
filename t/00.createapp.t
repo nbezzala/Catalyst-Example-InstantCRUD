@@ -9,8 +9,8 @@ my $apptree = dir('t', 'tmp', 'My-App');
 my $dbfile = file('t', 'tmp', 'test.db');
 rmtree( [$apptree, $dbfile] );
 
-my $testfile = file('t', 'tmp', 'test.db')->absolute;
-my $origtestfile = file('t', 'var', 'test.db')->absolute;
+my $testfile = file('t', 'tmp', 'test.db')->absolute->stringify;
+my $origtestfile = file('t', 'var', 'test.db')->absolute->stringify;
 
 copy $origtestfile, $testfile;
 

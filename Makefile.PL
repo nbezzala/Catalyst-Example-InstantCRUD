@@ -26,7 +26,7 @@ WriteMakefile(
 #        'Catalyst::Plugin::Authentication::Credential::Password' => 0,
         'Catalyst::Plugin::Session::State::Cookie'               => 0,
         'Catalyst::Plugin::Session::Store::FastMmap'             => 0,
-        'Rose::HTMLx::Form::DBIC'                                => 0,
+        'Rose::HTMLx::Form::DBIC'                                => 0.03,
         'Rose::HTMLx::Form::DBIC::FormGenerator'                 => 0,
         'Path::Class'                                            => 0,
 #        'version'                                                => 0,
