@@ -1,7 +1,8 @@
 package Catalyst::Helper::InstantCRUD;
 use base Catalyst::Helper;
+use Path::Class;
 
-use version; $VERSION = qv('0.0.6');
+use version; $VERSION = qv('0.0.7');
 
 use warnings;
 use strict;
@@ -15,7 +16,7 @@ sub _mk_appclass {
 sub _mk_rootclass {
     my $self = shift;
     $self->render_file( 'rootclass',
-        File::Spec->catfile( $self->{c}, "Root.pm" ) );
+        file( $self->{c}, "Root.pm" ) );
 }
 
 sub _mk_config {
@@ -23,7 +24,7 @@ sub _mk_config {
     my $dir       = $self->{dir};
     my $appprefix = $self->{appprefix};
     $self->render_file( 'config',
-        File::Spec->catfile( $dir, "$appprefix.yml" ) );
+        file( $dir, "$appprefix.yml" ) );
 }
 
 # No CHANGES file (already created)

@@ -6,7 +6,7 @@ eval 'exec /usr/bin/perl -w -S $0 ${1+"$@"}'
 use strict;
 use Getopt::Long;
 use Pod::Usage;
-use File::Spec;
+use Path::Class;
 use File::Slurp;
 use Catalyst::Helper::InstantCRUD;
 use Catalyst::Utils;
@@ -14,6 +14,8 @@ use Data::Dumper;
 use DBIx::Class::Schema::Loader qw/ make_schema_at /;
 use DBIx::Class::Schema::Loader::RelBuilder;
 use List::Util qw(first);
+use DBI;
+
 
 my $help     = 0;
 my $adv_help = 0;
@@ -31,6 +33,9 @@ my $schema_name = 'DBSchema';
 
 my %auth;
 my %authz;
+
+
+#exit;
 
 GetOptions(
     'help|?'  => \$help,
@@ -77,13 +82,22 @@ pod2usage(1) unless $helper->mk_app( $appname );
 
 my $appdir = $appname;
 $appdir =~ s/::/-/g;
-local $FindBin::Bin = File::Spec->catdir($appdir, 'script');
+if( ! $dsn ){
+    my $db_file = lc $appname . '.db';
+    $db_file =~ s/::/_/g;
+    $db_file = file( $appdir, $db_file )->absolute->stringify;
+    create_example_db( $db_file );
+    print "Database created at $db_file\n";
+    $dsn = "dbi:SQLite:dbname=$db_file";
+}
+
+local $FindBin::Bin = dir($appdir, 'script');
 
 make_schema_at(
     $appname . '::' . $schema_name,
     { 
 #        debug => 1, 
-        dump_directory => "$appdir/lib", 
+        dump_directory => file( $appdir , 'lib')->stringify, 
         use_namespaces => 1,
         default_resultset_class => '+DBIx::Class::ResultSet::RecursiveUpdate', 
     },
@@ -104,7 +118,7 @@ for my $result_class ( keys %$m2m ){
     my $overload_method = first { $_ =~ /name/i } $result_source->columns;
     $overload_method ||= 'id';
     my @path = split /::/ , $appname . '::' . $schema_name;
-    my $file = File::Spec->rel2abs( File::Spec->catfile($appdir, 'lib', @path, 'Result', $result_class . '.pm' ) );
+    my $file = file( $appdir, 'lib', @path, 'Result', $result_class . '.pm' )->absolute->stringify;
     my $content = File::Slurp::slurp( $file );
     my $addition = q/use overload '""' => sub {$_[0]->/ . $overload_method . "}, fallback => 1;\n";
     for my $m ( @{$m2m->{$result_class}} ){
@@ -182,10 +196,26 @@ sub guess_m2m {
     return \%m2m, \%bridges;
 }
     
+sub create_example_db {
+    my $filename = shift;
+    my $dsn ||= 'dbi:SQLite:dbname=' . $filename;
+    my $dbh = DBI->connect( $dsn ) or die "Cannot connect to $dsn\n";
+
+    my $sql;
+    {
+        local $/;
+        $sql = <DATA>;
+    }
+
+    for my $statement ( split /;/, $sql ){
+        next if $statement =~ /\A\s*\z/;
+#        warn "executing: \n$statement";
+        $dbh->do($statement) or die $dbh->errstr;
+    }
+}
+
 
 1;
-
-__END__
 
 =head1 NAME
 
@@ -332,10 +362,13 @@ L<Catalyst::Manual>, L<Catalyst::Manual::Intro>
 
 =head1 AUTHOR
 
-Sebastian Riedel, C<sri@oook.de>,
-Andrew Ford, C<A.Ford@ford-mason.co.uk>
 Zbigniew Lukasiak, C<zz bb yy@gmail.com>
 Jonas Alves, C<jonas.alves at gmail.com>
+
+Based on catalyst.pl by:
+
+Andrew Ford, C<A.Ford@ford-mason.co.uk>
+Sebastian Riedel, C<sri@oook.de>,
 Jonathan Manning
 
 =head1 COPYRIGHT
@@ -347,3 +380,89 @@ the same terms as Perl itself.
 
 =cut
 
+__DATA__
+BEGIN TRANSACTION;
+CREATE TABLE dvd (
+  id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+  name VARCHAR(255) DEFAULT NULL,
+  imdb_id INTEGER DEFAULT NULL,
+  owner INTEGER NOT NULL REFERENCES user (id),
+  current_owner INTEGER DEFAULT NULL REFERENCES user (id),
+  creation_date date DEFAULT NULL,
+  alter_date datetime DEFAULT NULL,
+  hour time DEFAULT NULL
+);
+INSERT INTO "dvd" VALUES(2,'Hohoho',1,1,1,'1990-08-23','2000-02-17 10:00:00','10:00');
+DELETE FROM sqlite_sequence;
+INSERT INTO "sqlite_sequence" VALUES('role',2);
+INSERT INTO "sqlite_sequence" VALUES('tag',25);
+INSERT INTO "sqlite_sequence" VALUES('user',3);
+INSERT INTO "sqlite_sequence" VALUES('dvd',4);
+CREATE TABLE dvdtag (
+  dvd INTEGER NOT NULL DEFAULT '0' REFERENCES dvd (id),
+  tag INTEGER NOT NULL DEFAULT '0' REFERENCES tag (id),
+  PRIMARY KEY (dvd,tag)
+);
+INSERT INTO "dvdtag" VALUES(2,1);
+INSERT INTO "dvdtag" VALUES(2,2);
+INSERT INTO "dvdtag" VALUES(2,5);
+INSERT INTO "dvdtag" VALUES(2,6);
+INSERT INTO "dvdtag" VALUES(3,1);
+INSERT INTO "dvdtag" VALUES(0,7);
+INSERT INTO "dvdtag" VALUES(4,1);
+INSERT INTO "dvdtag" VALUES(1,0);
+INSERT INTO "dvdtag" VALUES(1,1);
+INSERT INTO "dvdtag" VALUES(1,2);
+INSERT INTO "dvdtag" VALUES(1,4);
+INSERT INTO "dvdtag" VALUES(1,6);
+CREATE TABLE role (
+  id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+  role VARCHAR(255)
+);
+INSERT INTO "role" VALUES(1,'Write');
+INSERT INTO "role" VALUES(2,'Read');
+CREATE TABLE tag (
+  id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+  name VARCHAR(255) DEFAULT NULL
+);
+INSERT INTO "tag" VALUES(1,'Action');
+INSERT INTO "tag" VALUES(2,'Romance');
+INSERT INTO "tag" VALUES(3,'Tag1');
+INSERT INTO "tag" VALUES(4,'Tag2');
+INSERT INTO "tag" VALUES(5,'Tag3');
+INSERT INTO "tag" VALUES(6,'Tag4');
+INSERT INTO "tag" VALUES(8,'aa');
+INSERT INTO "tag" VALUES(9,'aaa');
+INSERT INTO "tag" VALUES(10,'aaaa');
+INSERT INTO "tag" VALUES(11,'aaaaa');
+INSERT INTO "tag" VALUES(12,'aaaaa');
+INSERT INTO "tag" VALUES(13,'aaaaaa');
+INSERT INTO "tag" VALUES(14,'aaaaaaa');
+INSERT INTO "tag" VALUES(15,'aaaaaaaa');
+INSERT INTO "tag" VALUES(16,'aaaaaaaaa');
+INSERT INTO "tag" VALUES(17,'aaaaaaaaaa');
+INSERT INTO "tag" VALUES(18,'aaaaaaaaaaa');
+INSERT INTO "tag" VALUES(19,'aaaaaaaaaaaa');
+INSERT INTO "tag" VALUES(20,'aaaaaaaaaaaaa');
+INSERT INTO "tag" VALUES(21,'aaaaaaaaaaaaaa');
+INSERT INTO "tag" VALUES(22,'aaaaaaaaaaaaaaa');
+INSERT INTO "tag" VALUES(23,'aaaaaaaaaaaaaaaa');
+INSERT INTO "tag" VALUES(24,'aaaaaaaaaaaaaaaaa');
+INSERT INTO "tag" VALUES(25,'aaaaaaaaaaaaaaaaaa');
+CREATE TABLE user (
+  id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+  username VARCHAR(255) DEFAULT NULL,
+  password VARCHAR(255) DEFAULT NULL,
+  name VARCHAR(255) DEFAULT NULL
+);
+INSERT INTO "user" VALUES(1,'jgda','35a2c6fae61f8077aab61faa4019722abf05093c','Jonas Alves');
+INSERT INTO "user" VALUES(2,'isa','59dc310530b44e8dd1231682b4cc5f2458af1c60','Isa');
+CREATE TABLE user_role (
+  user INTEGER NOT NULL DEFAULT '0' REFERENCES user (id),
+  role INTEGER NOT NULL DEFAULT '0' REFERENCES role (id),
+  PRIMARY KEY (user, role)
+);
+INSERT INTO "user_role" VALUES(1,1);
+INSERT INTO "user_role" VALUES(1,2);
+INSERT INTO "user_role" VALUES(3,0);
+COMMIT;
