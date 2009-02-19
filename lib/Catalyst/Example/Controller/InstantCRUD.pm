@@ -9,7 +9,7 @@ use Data::Dumper;
 use Path::Class;
 use Rose::HTMLx::Form::DBIC;
 
-use version; our $VERSION = qv('0.0.14');
+use version; our $VERSION = qv('0.0.15');
 
 sub auto : Local {
     my ( $self, $c ) = @_;
@@ -47,6 +47,7 @@ sub destroy : Local {
     my ( $self, $c, @pks ) = @_;
     if ( $c->req->method eq 'POST' ) {
         $self->model_item( $c, @pks )->delete;
+        $c->stash->{template} = lc( $self->source_name ) . '/list.tt';
         $c->forward('list');
     }
     else {

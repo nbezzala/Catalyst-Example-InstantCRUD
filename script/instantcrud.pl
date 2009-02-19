@@ -17,6 +17,8 @@ use List::Util qw(first);
 use DBI;
 
 
+my $appname = $ARGV[0];
+
 my $help     = 0;
 my $adv_help = 0;
 my $nonew    = 0;
@@ -26,16 +28,11 @@ my $auth     = 1;
 my $dsn;
 my $duser;
 my $dpassword;
-my $appname;
-
 my $model_name  = 'DBICSchemamodel';
 my $schema_name = 'DBSchema';
 
 my %auth;
 my %authz;
-
-
-#exit;
 
 GetOptions(
     'help|?'  => \$help,
@@ -43,7 +40,6 @@ GetOptions(
     'nonew'   => \$nonew,
     'scripts' => \$scripts,
     'short'   => \$short,
-    'name=s'    => \$appname,
     'dsn=s'     => \$dsn,
     'user=s'    => \$duser,
     'password=s'=> \$dpassword,
@@ -223,7 +219,7 @@ instantcrud.pl - Bootstrap a Catalyst application example
 
 =head1 SYNOPSIS
 
-instantcrud.pl [options] 
+instantcrud.pl [options] ApplicationName
 
  Options:
    -help           display this help and exits
@@ -238,10 +234,13 @@ instantcrud.pl [options]
    -model_name     model name (default: DBICSchemamodel) 
    -schema_name    schema name (default: DBSchema) 
 
- application-name must be a valid Perl module name and can include "::"
+ ApplicationName must be a valid Perl module name and can include "::";
+
+ All options are optional, if no dsn is provided an example SQLite database will be 
+ created and used.
 
  Examples:
-    instantcrud.pl -name=My::App -dsn='dbi:Pg:dbname=CE' -user=zby -password='pass'
+    instantcrud.pl -dsn='dbi:Pg:dbname=CE' -user=zby -password='pass' My::App
 
 
 =head1 OPTIONS

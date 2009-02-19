@@ -1,6 +1,6 @@
 package Catalyst::Example::InstantCRUD;
 
-use version; $VERSION = qv('0.0.26');
+use version; $VERSION = qv('0.0.27');
 
 use warnings;
 use strict;
