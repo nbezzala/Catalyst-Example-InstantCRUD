@@ -83,7 +83,7 @@ if( ! $dsn ){
     $db_file =~ s/::/_/g;
     $db_file = file( $appdir, $db_file )->absolute->stringify;
     create_example_db( $db_file );
-    print "Database created at $db_file\n";
+    warn "Database created at $db_file\n";
     $dsn = "dbi:SQLite:dbname=$db_file";
 }
 
@@ -93,7 +93,7 @@ make_schema_at(
     $appname . '::' . $schema_name,
     { 
 #        debug => 1, 
-        dump_directory => file( $appdir , 'lib')->stringify, 
+        dump_directory => dir( $appdir , 'lib')->absolute->stringify, 
         use_namespaces => 1,
         default_resultset_class => '+DBIx::Class::ResultSet::RecursiveUpdate', 
     },
