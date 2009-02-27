@@ -1,6 +1,6 @@
 package Catalyst::Example::InstantCRUD;
 
-use version; $VERSION = qv('0.0.28');
+use version; $VERSION = qv('0.0.29');
 
 use warnings;
 use strict;
@@ -99,9 +99,14 @@ The form handling code is in the controller.
         'List::Util'                                             => 0,
 
 =head1 BUGS AND LIMITATIONS
-
+ 
 This is still experimental and it is a first new release 
 after a long time and substantial refactoring so treat with caution.
+
+The '0.04005' vesion of DBIx::Class::Schema::Loader does not
+assigne 'is_nullable' to any column when loading from some SQLite
+versions.  In currently in applications generated out of
+SQLite databases all fields are marked as 'required'.
 
 The main generator script (instantcrud.pl) is an ugly hack.  First
 the Catalyst helpers assume where the executable is located so I had

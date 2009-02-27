@@ -15,7 +15,7 @@ use DBIx::Class::Schema::Loader qw/ make_schema_at /;
 use DBIx::Class::Schema::Loader::RelBuilder;
 use List::Util qw(first);
 use DBI;
-
+use utf8;
 
 my $appname = $ARGV[0];
 
@@ -74,7 +74,10 @@ my $helper = Catalyst::Helper::InstantCRUD->new( {
     'authz'       => \%authz,
 } );
 
-pod2usage(1) unless $helper->mk_app( $appname );
+if( ! $helper->mk_app( $appname ) ){
+    warn "Cannot create application: $appname\n";
+    pod2usage(1) unless $helper->mk_app( $appname );
+}
 
 my $appdir = $appname;
 $appdir =~ s/::/-/g;
@@ -89,27 +92,29 @@ if( ! $dsn ){
 
 local $FindBin::Bin = dir($appdir, 'script');
 
+my $full_schema_name = $appname . '::' . $schema_name;
 make_schema_at(
-    $appname . '::' . $schema_name,
+    $full_schema_name,
     { 
 #        debug => 1, 
         dump_directory => dir( $appdir , 'lib')->absolute->stringify, 
         use_namespaces => 1,
         default_resultset_class => '+DBIx::Class::ResultSet::RecursiveUpdate', 
+        components => 'UTF8Columns',
     },
     [ $dsn, $duser, $dpassword ],
 );
 
-{
-    no strict 'refs';
-    @{"$schema_name\::ISA"} = qw/DBIx::Class::Schema::Loader/;
-    $schema_name->loader_options(relationships => 1, exclude => qr/^sqlite_sequence$/);
-}
+#{
+#    no strict 'refs';
+#    @{"$schema_name\::ISA"} = qw/DBIx::Class::Schema::Loader/;
+#    $schema_name->loader_options(relationships => 1, exclude => qr/^sqlite_sequence$/);
+#}
 
-my $schema = $schema_name->connect($dsn, $duser, $dpassword);
+my $schema = $full_schema_name->connect(); #$dsn, $duser, $dpassword);
 
 my ( $m2m, $bridges ) = guess_m2m( $schema );
-for my $result_class ( keys %$m2m ){
+for my $result_class ( $schema->sources ){ 
     my $result_source = $schema->source( $result_class );
     my $overload_method = first { $_ =~ /name/i } $result_source->columns;
     $overload_method ||= 'id';
@@ -123,6 +128,8 @@ for my $result_class ( keys %$m2m ){
         my $a2 = $m->[2];
         $addition .= "__PACKAGE__->many_to_many('$a0', '$a1' => '$a2');\n";
     }
+    my @columns = $result_source->columns;
+    $addition .= "__PACKAGE__->utf8_columns(qw/@columns/);\n";
     $content =~ s/1;\s*/$addition\n1;/;
     File::Slurp::write_file( $file, $content );
 }
@@ -149,8 +156,7 @@ sub guess_m2m {
     CLASS:
     for my $s ( $schema->sources ) {
         my $source = $schema->source($s);
-        my $c      = $schema->class($s);
-        my @relationships = $c->relationships;
+        my @relationships = $source->relationships;
         my @cols = $source->columns;
         next if scalar @relationships != 2;
         next if scalar @cols!= 2;
@@ -161,10 +167,9 @@ sub guess_m2m {
             my $rclass_name = $info->{class};
             $rclass_name =~ /([^:]*)$/;
             $rclass_name = $1;
-            my $rclass = $schema->class( $rclass_name );
             my $rsource = $schema->source( $rclass_name );
             my $found;
-            for my $rrel ( $rclass->relationships ){
+            for my $rrel ( $rsource->relationships ){
                 my $rinfo = $rsource->relationship_info($rrel);
                 my $rrclass_name = $rinfo->{class};
                 $rrclass_name =~ /([^:]*)$/;
@@ -196,6 +201,7 @@ sub create_example_db {
     my $filename = shift;
     my $dsn ||= 'dbi:SQLite:dbname=' . $filename;
     my $dbh = DBI->connect( $dsn ) or die "Cannot connect to $dsn\n";
+    $dbh->{unicode} = 1;
 
     my $sql;
     {
@@ -219,18 +225,13 @@ instantcrud.pl - Bootstrap a Catalyst application example
 
 =head1 SYNOPSIS
 
-instantcrud.pl [options] ApplicationName
+instantcrud.pl ApplicationName [options]
 
  Options:
-   -help           display this help and exits
-   -advanced_help  display the advanced help screen and exits
-   -nonew          don't create a .new file where a file to be created exists
-   -scripts        update helper scripts only
-   -short          use short types, like C instead of Controller...
-   -name           application-name
    -dsn            dsn
    -user           database user
    -password       database password
+   -help           display this help and exits
    -model_name     model name (default: DBICSchemamodel) 
    -schema_name    schema name (default: DBSchema) 
 
@@ -240,27 +241,7 @@ instantcrud.pl [options] ApplicationName
  created and used.
 
  Examples:
-    instantcrud.pl -dsn='dbi:Pg:dbname=CE' -user=zby -password='pass' My::App
-
-
-=head1 OPTIONS
-
- (For advanced users...)
-
- Authentication options:
-    (See Catalyst::Plugin::Authentication::Store::DBIC for more info)
-    -auth_user_table		 user table name
-    -auth_user_field		 user field name
-    -auth_password_field	 password field name
-    -auth_password_type		 password type (clear, crypted, hashed, or salted_hash)
-    -auth_password_hash_type	 password hash type (any hashing method supported by the Digest module may be used)
- 
-     Authorization options:
-    -authz_role_table		 name of the table that contains the list of roles 
-    -authz_role_field		 name of the field in authz_role_table that contains the role name
-    -authz_user_role_user_field  name of the field in the user_role table that contains the user id		
-    -authz_role_rel		 name of the relationship in role Class that refers to the mapping table between users and roles
-
+    instantcrud.pl My::App -dsn='dbi:Pg:dbname=CE' -user=zby -password='pass' 
 
 =head1 DESCRIPTION
 
@@ -339,22 +320,6 @@ test directory
 
 =back
 
-The application module generated by the C<catalyst.pl> script is functional,
-although it reacts to all requests by outputting a friendly welcome screen.
-
-=head1 NOTE
-
-Neither C<catalyst.pl> nor the generated helper script will overwrite existing
-files.  In fact the scripts will generate new versions of any existing files,
-adding the extension C<.new> to the filename.  The C<.new> file is not created
-if would be identical to the existing file.  
-
-This means you can re-run the scripts for example to see if newer versions of
-Catalyst or its plugins generate different code, or to see how you may have
-changed the generated code (although you do of course have all your code in a
-version control system anyway, don't you ...).
-
-
 =head1 SEE ALSO
 
 L<Catalyst::Manual>, L<Catalyst::Manual::Intro>
@@ -371,8 +336,6 @@ Sebastian Riedel, C<sri@oook.de>,
 Jonathan Manning
 
 =head1 COPYRIGHT
-
-Copyright 2004-2005 Sebastian Riedel. All rights reserved.
 
 This library is free software, you can redistribute it and/or modify it under
 the same terms as Perl itself.
@@ -464,4 +427,16 @@ CREATE TABLE user_role (
 INSERT INTO "user_role" VALUES(1,1);
 INSERT INTO "user_role" VALUES(1,2);
 INSERT INTO "user_role" VALUES(3,0);
+CREATE TABLE unicode_examples (
+  id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+  iso_country_code CHAR(2),
+  language_name varchar(255),
+  main_unicode_set varchar(255),
+  example_text text
+);
+
+INSERT INTO "unicode_examples" VALUES(1,'PL','Polish','Latin Extended A','Literki z ogonkami alfabetycznie: ąćęłńóśżźĄĆĘŁŃÓŚŹŻ (acelnoszzACELNOSZZ)');
+INSERT INTO "unicode_examples" VALUES(2,'DE','German','Latin-1 Supplement','äöüÄÖÜß');
+INSERT INTO "unicode_examples" VALUES(3,'RU','Russian','Cyrillic','Это текст на русском языке');
+INSERT INTO "unicode_examples" VALUES(4,'','Math Symbols','Mathematical Operators','(x ∊ A ∪ B) ≡ (x ∊ A)∨(x ∊ B)');
 COMMIT;

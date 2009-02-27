@@ -10,6 +10,10 @@ use List::Util qw(first);
 
 sub mk_compclass {
     my ( $self, $helper, $schema, $m2m, $bridges ) = @_;
+
+    my $file = $helper->{file};
+    $helper->render_file( 'compclass', $file );
+
     my @classes = map {
         $bridges->{ $_ } ? () : $_
     } $schema->sources;
@@ -121,6 +125,42 @@ __DATA__
 
 =begin pod_to_ignore
 
+__compclass__
+package [% class %];
+
+use strict;
+use base 'Catalyst::View::TT';
+
+__PACKAGE__->config( 
+    TEMPLATE_EXTENSION => '.tt',
+    ENCODING           => 'UTF-8',
+);
+
+=head1 NAME
+
+[% class %] - TT View for [% app %]
+
+=head1 DESCRIPTION
+
+TT View for [% app %].
+
+=head1 AUTHOR
+
+=head1 SEE ALSO
+
+L<[% app %]>
+
+[% author %]
+
+=head1 LICENSE
+
+This library is free software, you can redistribute it and/or modify
+it under the same terms as Perl itself.
+
+=cut
+
+1;
+
 __list__
 [% TAGS <+ +> %]
 <table>
@@ -172,12 +212,6 @@ __view__
 <a href="[% c.uri_for( 'list' ) %]">List</a>
 
 
-__compclass__
-package [% class %];
-use base Catalyst::Example::Controller::InstantCRUD;
-use strict;
-
-1;
 __wrapper__
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN"
     "http://www.w3.org/TR/xhtml1/DTD/xhtml11.dtd">

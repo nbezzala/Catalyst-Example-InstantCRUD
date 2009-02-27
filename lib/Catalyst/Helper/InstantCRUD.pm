@@ -47,6 +47,7 @@ use Catalyst qw/
 	-Debug
 	ConfigLoader
 	Static::Simple
+    Unicode
 [% IF auth -%]
 [% END -%]
 /;
