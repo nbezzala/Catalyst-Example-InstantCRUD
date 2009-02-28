@@ -1,6 +1,6 @@
 package Catalyst::Helper::View::InstantCRUD;
 
-use version; $VERSION = qv('0.0.6');
+use version; $VERSION = qv('0.0.7');
 
 use warnings;
 use strict;
@@ -241,19 +241,36 @@ __edit__
 <hr>
 [% form.html_table %]
 __pager__
-<div id="pager">
-Results: [% pager.first %] to [% pager.last %] from [% pager.total_entries %]<br />
-[%  IF pager.last_page > 1 %]
-[%-     FOR page = [ pager.first_page .. pager.last_page ] -%]
-[%-         IF page == pager.current_page -%]
-<b>[%-          page -%]</b>
-[%-         ELSE -%]
-<a href="[% c.request.uri_with( 'page' => page )%]">[% page %]</a>
-[%-         END -%]
-&nbsp;
-[%      END -%]
-[%- END -%]
+[% IF pager %]
+<div class="pager">
+    <div class="counter">
+        Page [% pager.current_page %] of [% pager.last_page %]
+    </div>
+    <div>
+       [% IF pager.previous_page %]
+           <span><a href="[% c.req.uri_with( page => pager.first_page ) %]">&laquo;</a></span>
+           <span><a href="[% c.req.uri_with( page => pager.previous_page ) %]">&lt;</a></span>
+       [% END %]
+
+       [%  
+           start = (pager.current_page - 3) > 0               ? (pager.current_page - 3) : 1;
+           end   = (pager.current_page + 3) < pager.last_page ? (pager.current_page + 3) : pager.last_page;
+           FOREACH page IN [ start .. end  ]
+       %] 
+           [% IF pager.current_page == page %]
+               <span class="current"> [% page %] </span>
+           [% ELSE %]
+               <span> <a href="[% c.req.uri_with( page => page ) %]">[% page %]</a> </span>
+           [% END %]
+       [% END %]
+
+       [% IF pager.next_page %]
+           <span><a href="[% c.req.uri_with( page => pager.next_page ) %]">&gt;</a></span>
+           <span><a href="[% c.req.uri_with( page => pager.last_page ) %]">&raquo;</a></span>
+       [% END %]
+   </div>
 </div>
+[% END %]
 
 __destroy__
 [% destroywidget %]
@@ -905,7 +922,7 @@ L<http://rt.cpan.org>.
 =head1 AUTHOR
 
 <Zbigniew Lukasiak>  C<< <<zz bb yy @ gmail.com>> >>
-
+Paginator adapted from example by Oliver Charles.
 
 =head1 LICENCE AND COPYRIGHT
 

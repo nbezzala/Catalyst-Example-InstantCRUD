@@ -1,6 +1,6 @@
 package Catalyst::Example::InstantCRUD;
 
-use version; $VERSION = qv('0.0.29');
+use version; $VERSION = qv('0.0.30');
 
 use warnings;
 use strict;
@@ -19,15 +19,14 @@ Catalyst::Example::InstantCRUD - A CRUD scaffolding for Catalyst.
 
 =head1 VERSION
 
-This document describes Catalyst::Example::InstantCRUD version 0.0.22
+This document describes Catalyst::Example::InstantCRUD version 0.0.30
 
 =head1 SYNOPSIS
 
-    instantcrud.pl -name=My::App -dsn='dbi:Pg:dbname=CE' -user=zby -password='pass'
+    instantcrud.pl My::App -dsn='dbi:Pg:dbname=CE' -user=zby -password='pass'
 
-The instantcrud.pl executable creates a skeleton CRUD application in
-current directory. The parameters are: name of the application and
-database connection details.
+The L<instantcrud.pl> executable creates a skeleton CRUD application in
+current directory. 
 
 =head1 DESCRIPTION
 
@@ -71,32 +70,15 @@ to customize and extend it.
 The form handling code is in the controller.
 
 =head1 DEPENDENCIES
+See Makefile.PL
 
-=for author to fill in:
-    A list of all the other modules that this module relies upon,
-    including any restrictions on versions, and an indication whether
-    the module is part of the standard Perl distribution, part of the
-    module's distribution, or must be installed separately. ]
+=head1 RESOURCES
 
-        'Catalyst::Runtime'                                      => '5.7000',
-        'Catalyst::Devel'                                        => '1.00',
-        'Catalyst::View::TT'                                     => '0.21',
-        'DBIx::Class'                                            => '0.08003',
-        'DBIx::Class::Schema::Loader'                            => '0.03',
-        'DBIx::Class::ResultSet::RecursiveUpdate'                => 0,
-        'Catalyst::Model::DBIC::Schema'                          => 0,
-        'Catalyst::Helper::Model::DBIC::Schema'                  => 0,
-        'Catalyst::Plugin::ConfigLoader'                         => 0,
-        'Catalyst::Plugin::Static::Simple'                       => 0,
-        'Catalyst::Plugin::Session::State::Cookie'               => 0,
-        'Catalyst::Plugin::Session::Store::FastMmap'             => 0,
-        'Rose::HTMLx::Form::DBIC'                                => 0,
-        'Rose::HTMLx::Form::DBIC::FormGenerator'                 => 0,
-        'Path::Class'                                            => 0,
-        'File::Spec'                                             => 0,
-        'File::Slurp'                                            => 0,
-        'Pod::Usage'                                             => 0,
-        'List::Util'                                             => 0,
+L<http://dev.catalyst.perl.org/wiki/crud/instantcrud> - InstantCRUD page at 
+the Catalyst wiki.
+
+svn: http://dev.catalystframework.org/repos/Catalyst/trunk/Catalyst-Example-InstantCRUD
+
 
 =head1 BUGS AND LIMITATIONS
  
