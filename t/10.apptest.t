@@ -12,7 +12,7 @@ eval "use Test::WWW::Mechanize::Catalyst 'My::App'";
 if ($@){
     plan skip_all => "Test::WWW::Mechanize::Catalyst required for testing application";
 }else{
-    plan tests => 20;
+    plan tests => 22;
 }
 
 my $mech = Test::WWW::Mechanize::Catalyst->new;
@@ -56,8 +56,8 @@ $mech->submit_form(
         value => 'Varchar Field',
     }
 );
-$mech->content_like( qr{<b>Id1:</b>\s*$id1\s*<br/>}, 'Viewing record with composed key' );
-$mech->follow_link_ok({text => 'Edit'}, "Editing a DVD");
+$mech->content_like( qr{<b>Id1:</b></td>\s*<td>\s*$id1}, 'Viewing record with composed key' );
+$mech->follow_link_ok({text => 'Edit'}, "Editing a record with composed key");
 $mech->content_contains( $id1, 'Following Edit for a record with composed key' );
 my $random_string = 'random ' . random_regex('\w{20}');
 #DBI->trace(1);
@@ -69,4 +69,6 @@ $mech->submit_form(
 );
 $mech->content_contains( $id1, 'Editing record with composed key' );
 $mech->content_contains( $random_string, 'Editing record with composed key' );
+$mech->follow_link_ok({text => 'List'}, "Listing records with composed key");
+$mech->content_contains( $random_string, 'Listing of records with composed key contains the new record' );
 

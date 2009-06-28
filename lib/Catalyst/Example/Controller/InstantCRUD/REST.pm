@@ -1,231 +1,101 @@
-package Catalyst::Helper::InstantCRUD;
-use base Catalyst::Helper;
-use Path::Class;
-
-use version; $VERSION = qv('0.0.7');
-
-use warnings;
 use strict;
+use warnings;
 
-sub _mk_appclass {
+package Catalyst::Example::Controller::InstantCRUD::REST;
+
+use base qw/ Catalyst::Example::Controller::InstantCRUD /;
+use Class::C3;
+
+sub create_action {
     my $self = shift;
-    my $mod  = $self->{mod};
-    $self->render_file( 'appclass', "$mod.pm" );
+
+    return $self->maybe::next::method(@_);
 }
 
-sub _mk_rootclass {
-    my $self = shift;
-    $self->render_file( 'rootclass',
-        file( $self->{c}, "Root.pm" ) );
+use Carp;
+use Data::Dumper;
+
+use version; our $VERSION = qv('0.0.1');
+
+sub create_form : Local {
+    my ( $self, $c, @pks ) = @_; 
+    $self->edit( $c, @pks );
+    $c->stash( template => 'edit.tt' );
 }
 
-sub _mk_config {
-    my $self      = shift;
-    my $dir       = $self->{dir};
-    my $appprefix = $self->{appprefix};
-    $self->render_file( 'config',
-        file( $dir, "$appprefix.yml" ) );
+sub by_id : Local : ActionClass('REST') { }
+
+sub _get_form {
+    my( $self, $c, $pks ) = @_;
+    my $form_name = ref( $self ) . '::' . $self->source_name . 'Form';
+    my @ids;
+    @ids = ( item_id => $pks ) if defined $pks && @$pks;
+    my $form = $form_name->new(
+        schema => $self->model_schema($c),
+#    item_class => $self->source_name($c),
+        method => $c->req->method,
+        params => $c->req->params,
+        @ids,
+    );
+    my $field = HTML::FormHandler::Field::Hidden->new( 
+        name => 'x-tunneled-method', 
+        form => $form, 
+        value => 'PUT',
+    );
+    $form->add_field($field);
+    return $form;
+}
+    
+
+sub by_id_GET : Local {
+    my ( $self, $c, @args ) = @_; 
+    my @model_pks = $self->model_pks( $c );
+    my @pks = @args[ 0 .. scalar @model_pks - 1 ];
+    my $view_type = $args[ scalar @model_pks ];
+    $view_type = 'view' if !defined( $view_type ) or $view_type ne 'edit';
+    my $item = $self->model_item( $c, @pks );
+    $c->stash->{item} = $item;
+    if( $view_type eq 'edit' ){
+        my $form = $self->_get_form( $c, \@pks );
+        $c->stash( form => $form );
+    }
+    $c->stash( template => $view_type . '.tt' );
 }
 
-# No CHANGES file (already created)
-sub _mk_changes {}
+sub by_id_PUT : Local {
+    my ( $self, $c, @args ) = @_; 
+    my @model_pks = $self->model_pks( $c );
+    my @pks = @args[ 0 .. scalar @model_pks - 1 ];
+    my $form = $self->_get_form( $c, \@pks );
+    if( $form->process ){
+        my $item = $form->item;
+        my @new_pks = map { $item->$_ } @model_pks;
+        $c->res->redirect( $c->uri_for( 'by_id', @new_pks ) );
+    }
+    else{ 
+        $c->stash( form => $form );
+        $c->stash( template => 'edit.tt' );
+    }
+}
+
 
 1;
-__DATA__
 
-=begin pod_to_ignore
-
-__appclass__
-use strict;
-use warnings;
-
-package [% name %];
-
-use Catalyst::Runtime '5.70';
-[% IF rest %]use Catalyst::Request::REST::ForBrowsers;[% END %]
-
-use Catalyst qw/
-	-Debug
-	ConfigLoader
-	Static::Simple
-    Unicode
-[% IF auth -%]
-[% END -%]
-/;
-#	Session
-#	Session::Store::FastMmap
-#	Session::State::Cookie
-#	Authentication
-#	Authentication::Store::DBIC
-#	Authentication::Credential::Password
-#	Auth::Utils
-
-our $VERSION = '0.01';
-
-__PACKAGE__->config( name => '[% name %]' );
-[% IF rest %]__PACKAGE__->request_class( 'Catalyst::Request::REST::ForBrowsers' );[% END %]
-
-# Start the application
-__PACKAGE__->setup;
-
-#
-# IMPORTANT: Please look into [% rootname %] for more
-#
-
-=head1 NAME
-
-[% name %] - Catalyst based application
-
-=head1 SYNOPSIS
-
-    script/[% appprefix %]_server.pl
-
-=head1 DESCRIPTION
-
-Catalyst based application.
-
-=head1 SEE ALSO
-
-L<[% rootname %]>, L<Catalyst>
-
-=head1 AUTHOR
-
-[% author %]
-
-=head1 LICENSE
-
-This library is free software, you can redistribute it and/or modify
-it under the same terms as Perl itself.
-
-=cut
-
-1;
-__rootclass__
-package [% rootname %];
-
-use strict;
-use warnings;
-use base 'Catalyst::Controller';
-
-#
-# Sets the actions in this controller to be registered with no prefix
-# so they function identically to actions created in MyApp.pm
-#
-__PACKAGE__->config->{namespace} = '';
-
-=head1 NAME
-
-[% rootname %] - Root Controller for this Catalyst based application
-
-=head1 SYNOPSIS
-
-See L<[% name %]>.
-
-=head1 DESCRIPTION
-
-Root Controller for this Catalyst based application.
-
-=head1 METHODS
-
-=cut
-
-=head2 default
-
-By default all the pages return 404
-
-=cut
-
-sub default : Private {
-    my ( $self, $c ) = @_;
-    $c->response->status(404);
-    $c->response->body("404 Not Found");
-};
-
-=head2 index
-
-=cut
-
-sub index : Private{
-    my ( $self, $c ) = @_;
-    my @additional_paths = ( $c->config->{root} );
-    $c->stash->{additional_template_paths} = \@additional_paths;
-    $c->stash->{template} = 'home.tt';
-}
-
-[% IF auth %]
-
-=head2 restricted
-Action available only for logged in users.  Checks if user is logged in, if not, forwards to login page.
-=cut
-
-# sub restricted : Local : ActionClass('Auth::Check') {
-#     my ( $self, $c ) = @_;
-# }
-
-
-=head2 login
-
-Login logic
-
-=cut
-
-# sub login : Local : ActionClass('Auth::Login') {}
-
-=head2 logout
-
-Logout logic
-
-=cut
-
-# sub logout : Local : ActionClass('Auth::Logout') {}
-[% END %]
-
-=head2 end
-
-Attempt to render a view, if needed.
-
-=cut
-
-sub end : ActionClass('RenderView') {}
-
-=head1 AUTHOR
-
-[% author %]
-
-=head1 LICENSE
-
-This library is free software, you can redistribute it and/or modify
-it under the same terms as Perl itself.
-
-=cut
-
-1;
-__config__
----
-name: [% name %]
-
-View::TT:
-    WRAPPER: 'wrapper.tt'
-
-InstantCRUD:
-    model_name: [% model_name %]
-    schema_name: [% schema_name %]
-    maxrows: 10
 __END__
 
 =head1 NAME
 
-Catalyst::Helper::Controller::InstantCRUD - [One line description of module's purpose here]
+Catalyst::Example::Controller::InstantCRUD::REST - Catalyst CRUD example RESTful Controller
 
 
 =head1 VERSION
 
-This document describes Catalyst::Helper::Controller::InstantCRUD version 0.0.1
+This document describes Catalyst::Example::Controller::InstantCRUD::REST version 0.0.1
 
 
 =head1 SYNOPSIS
 
-    use Catalyst::Helper::Controller::InstantCRUD;
+    use base Catalyst::Example::Controller::InstantCRUD::REST;
 
 =for author to fill in:
     Brief code example(s) here showing commonest usage(s).
@@ -239,22 +109,26 @@ This document describes Catalyst::Helper::Controller::InstantCRUD version 0.0.1
     Write a full description of the module and its features here.
     Use subsections (=head2, =head3) as appropriate.
 
+
+=head1 INTERFACE 
+
 =head2 METHODS
 
 =over 4
 
-=item mk_compclass
+=item by_id
+The main dispatch point.  
+
+=item by_id_PUT
+Updates an object (or creates one).
+
+=item by_id_GET 
+Shows object representation
+
+=item create_form
+Form for object creation.
 
 =back
-
-=head1 INTERFACE 
-
-=for author to fill in:
-    Write a separate section listing the public components of the modules
-    interface. These normally consist of either subroutines that may be
-    exported, or methods that may be called on objects belonging to the
-    classes provided by the module.
-
 
 =head1 DIAGNOSTICS
 
@@ -288,7 +162,7 @@ This document describes Catalyst::Helper::Controller::InstantCRUD version 0.0.1
     that can be set. These descriptions must also include details of any
     configuration language used.
   
-Catalyst::Helper::Controller::InstantCRUD requires no configuration files or environment variables.
+Catalyst::Example::Controller::InstantCRUD requires no configuration files or environment variables.
 
 
 =head1 DEPENDENCIES
@@ -328,14 +202,15 @@ None reported.
 No bugs have been reported.
 
 Please report any bugs or feature requests to
-C<bug-catalyst-helper-controller-instantcrud@rt.cpan.org>, or through the web interface at
+C<bug-catalyst-example-controller-instantcrud@rt.cpan.org>, or through the web interface at
 L<http://rt.cpan.org>.
 
 
 =head1 AUTHOR
 
 <Zbigniew Lukasiak>  C<< <<zz bb yy @ gmail.com>> >>
-
+<Jonas Alves>  C<< <<jonas.alves at gmail.com>> >>
+<Lars Balker Rasmussen>
 
 =head1 LICENCE AND COPYRIGHT
 
@@ -367,5 +242,3 @@ RENDERED INACCURATE OR LOSSES SUSTAINED BY YOU OR THIRD PARTIES OR A
 FAILURE OF THE SOFTWARE TO OPERATE WITH ANY OTHER SOFTWARE), EVEN IF
 SUCH HOLDER OR OTHER PARTY HAS BEEN ADVISED OF THE POSSIBILITY OF
 SUCH DAMAGES.
-
-

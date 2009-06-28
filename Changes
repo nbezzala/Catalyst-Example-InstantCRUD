@@ -1,5 +1,9 @@
 Revision history for Catalyst-Example-InstantCRUD
 
+0.0.32 Sun Jun 28 21:56:24 CEST 2009 HTML::FormHandler based
+
+0.0.30 Sat Feb 28 11:15:15 CET 2009 Better pager
+
 0.0.29 Thu Feb 26 21:19:55 CET 2009 UTF-8
 
 

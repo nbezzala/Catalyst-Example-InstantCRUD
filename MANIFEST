@@ -8,11 +8,12 @@ t/00.load.t
 t/10.apptest.t
 t/20.create_dvdzbr.t
 t/21.test_dvdzbr.t
+t/30.create_rest.t
+t/31.test_rest.t
 t/pod-coverage.t
 t/pod.t
+t/var/test.sql
 t/tmp/test.db
-t/var/dvdzbr.db
-t/var/test.db
 lib/Catalyst/Helper/View/InstantCRUD.pm
 lib/Catalyst/Helper/Model/InstantCRUD.pm
 lib/Catalyst/Helper/InstantCRUD.pm
@@ -20,5 +21,5 @@ lib/Catalyst/Helper/Controller/InstantCRUD.pm
 lib/Catalyst/Plugin/Auth/Utils.pm
 lib/Catalyst/Example/InstantCRUD.pm
 lib/Catalyst/Example/Controller/InstantCRUD.pm
-
+lib/Catalyst/Example/Controller/InstantCRUD/REST.pm
 META.yml                                 Module meta-data (added by MakeMaker)

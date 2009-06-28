@@ -107,8 +107,12 @@ $mech->submit_form(
         owner => 1,
         current_owner => 2,
         hour => '10:00',
-        creation_date => '1990/08/23',
-        alter_date => '2000/02/17',
+        'creation_date.year' => '1990',
+        'creation_date.month' => '08',
+        'creation_date.day' => '23',
+        'alter_date.year' => '2000',
+        'alter_date.month' => '02',
+        'alter_date.day' => '17',
 	imdb_id => 133,
     }
 );
@@ -128,8 +132,12 @@ $mech->submit_form(
         owner => 1,
         current_owner => 2,
         hour => '10:00',
-        creation_date => '1990/08/23',
-        alter_date => '2000/02/17',
+        'creation_date.year' => '1990',
+        'creation_date.month' => '08',
+        'creation_date.day' => '23',
+        'alter_date.year' => '2000',
+        'alter_date.month' => '02',
+        'alter_date.day' => '17',
 	imdb_id => 133,
     }
 );

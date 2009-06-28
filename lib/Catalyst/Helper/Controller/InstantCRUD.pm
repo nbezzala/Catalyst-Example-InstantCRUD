@@ -6,7 +6,7 @@ use warnings;
 use strict;
 use Path::Class;
 use Data::Dumper;
-use Rose::HTMLx::Form::DBIC::FormGenerator;
+use HTML::FormHandler::Generator::DBIC;
 
 sub mk_compclass {
     my ( $self, $helper, $schema, $m2m) = @_;
@@ -24,13 +24,14 @@ sub mk_controller {
     my( $helper, $class, $schema, $m2m ) = @_;
     $helper->{class} = $helper->{app} . '::Controller::' . $class;
     (my $file = $helper->{file})  =~ s/InstantCRUD/$class/;
-    my $generator = Rose::HTMLx::Form::DBIC::FormGenerator->new( 
+    my $generator = HTML::FormHandler::Generator::DBIC->new( 
         schema => $schema, 
         class_prefix => $helper->{class}, 
         style => 'single', 
         m2m => $m2m,
+        rs_name => $class,
     );
-    $helper->{form_code} = $generator->generate_form( $class );
+    $helper->{form_code} = $generator->generate_form();
     $helper->render_file( compclass => $file );
 }
 
@@ -51,9 +52,24 @@ __DATA__
 =begin pod_to_ignore
 
 __compclass__
-package [% class %];
-use base "Catalyst::Example::Controller::InstantCRUD";
 use strict;
+use warnings;
+
+package [% class %];
+[% IF rest %]
+use base "Catalyst::Example::Controller::InstantCRUD::REST";
+__PACKAGE__->config(
+    serialize => {
+        default => 'text/html',
+        map => {
+            'text/html'   => [ 'View', 'TT' ],
+            'text/x-json' => 'JSON::Syck',
+        }
+    }
+);
+[% ELSE %]
+use base "Catalyst::Example::Controller::InstantCRUD";
+[% END %]
 
 [% form_code %]
 

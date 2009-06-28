@@ -3,16 +3,15 @@ use warnings;
 use Test::More tests => 2;
 use Path::Class;
 use File::Path;
-use File::Copy;
+use DBI;
 
 my $apptree = dir('t', 'tmp', 'My-App');
 my $dbfile = file('t', 'tmp', 'test.db');
 rmtree( [$apptree, $dbfile] );
 
 my $testfile = file('t', 'tmp', 'test.db')->absolute->stringify;
-my $origtestfile = file('t', 'var', 'test.db')->absolute->stringify;
-
-copy $origtestfile, $testfile;
+my $sqlfile = file('t', 'var', 'test.sql')->absolute->stringify;
+create_example_db( $testfile, $sqlfile );
 
 my $tmpdir = dir(qw/ t tmp/);
 my $libdir = dir(dir()->parent->parent, 'lib');
@@ -27,4 +26,25 @@ chdir $currdir;
 
 ok( -f file(qw/ t tmp My-App lib My App DBSchema.pm/), 'DBSchema creation');
 ok( -f file( qw/ t tmp My-App lib My App Controller Usr.pm / ), 'Controller for "User" created');
+
+sub create_example_db {
+    my ( $filename, $sqlfile ) = @_;
+    my $dsn ||= 'dbi:SQLite:dbname=' . $filename;
+    my $dbh = DBI->connect( $dsn ) or die "Cannot connect to $dsn\n";
+    $dbh->{unicode} = 1;
+
+    my $sqlfh;
+    open $sqlfh, $sqlfile;
+    my $sql;
+    {
+        local $/;
+        $sql = <$sqlfh>;
+    }
+
+    for my $statement ( split /;/, $sql ){
+        next if $statement =~ /\A\s*\z/;
+#        warn "executing: \n$statement";
+        $dbh->do($statement) or die $dbh->errstr;
+    }
+}
 

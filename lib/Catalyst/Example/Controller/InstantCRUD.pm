@@ -1,13 +1,14 @@
+use strict;
+use warnings;
+
 package Catalyst::Example::Controller::InstantCRUD;
 
-use warnings;
-use strict;
 use base 'Catalyst::Controller';
 
 use Carp;
 use Data::Dumper;
 use Path::Class;
-use Rose::HTMLx::Form::DBIC;
+#use Rose::HTMLx::Form::DBIC;
 
 use version; our $VERSION = qv('0.0.15');
 
@@ -26,8 +27,15 @@ sub source_name {
 sub model_item {
     my ( $self, $c, @pks ) = @_;
     my $rs = $self->model_resultset($c);
-    my $item = scalar @pks ? $rs->find( @pks, { key => 'primary' }) : $rs->new( {} );
+    my $item = $rs->find( @pks, { key => 'primary' });
     return $item;
+}
+
+sub model_pks {
+    my ( $self, $c ) = @_;
+    my $rs = $self->model_resultset($c);
+    my @pks = $rs->result_source->primary_columns;
+    return @pks;
 }
 
 sub model_resultset {
@@ -35,6 +43,12 @@ sub model_resultset {
     my $model_name = $c->config->{InstantCRUD}{model_name};
     my $source     = $self->source_name;
     return $c->model($model_name)->resultset($source);
+}
+
+sub model_schema {
+    my ( $self, $c ) = @_;
+    my $model_name = $c->config->{InstantCRUD}{model_name};
+    return $c->model($model_name);
 }
 
 sub index : Private {
@@ -65,21 +79,26 @@ END
 sub edit : Local {
     my ( $self, $c, @pks ) = @_; 
     my $form_name = ref( $self ) . '::' . $self->source_name . 'Form';
-    my $form = $form_name->new();
-    my $rs = $self->model_resultset($c);
-    my $processor = Rose::HTMLx::Form::DBIC->new( form => $form, rs => $rs );
-    my $params = $c->req->params;
-    $processor->init_params( $params );
-    if( $c->req->method eq 'POST' and $form->was_submitted ){
-        if( my $item = $processor->dbic_from_form(@pks) ){
-            $c->res->redirect( $c->uri_for( 'view', $item->id ) );
-            $c->stash( item => $item );
-        }
+    my @ids;
+    @ids = ( item_id => [ @pks ] ) if @pks;
+    my $form = $form_name->new( 
+        schema => $self->model_schema($c), 
+        params => $c->req->params, 
+        @ids,
+    );
+    if( $c->req->method eq 'POST' && $form->process() ){
+        my $item = $form->item;
+        $c->res->redirect( $c->uri_for( 'view', $item->id ) );
+        $c->stash( item => $item );
     }
-    else {
-        $processor->init_from_dbic(@pks) if scalar @pks;
+    if( @pks ){
+        $form->field( 'submit' )->value( 'Update' );
     }
-    $c->stash( form => $form );
+    else{
+        $form->field( 'submit' )->value( 'Create' );
+    }
+
+    $c->stash( form => $form->render );
 }
 
 sub view : Local {
@@ -87,7 +106,6 @@ sub view : Local {
     die "You need to pass an id" unless @pks;
     my $item = $self->model_item( $c, @pks );
     $c->stash->{item} = $item;
-#    $c->stash->{template} = 'view.tt';
 }
 
 sub get_resultset {
@@ -135,7 +153,6 @@ sub list : Local {
     ($c->stash->{pri}) = $source->primary_columns;
     $c->stash->{order_by_column_link} = $self->create_col_link($c, $source);
     $c->stash->{result} = $result;
-#    $c->stash->{template} = 'list.tt';
 }
 
 
@@ -188,6 +205,9 @@ Returns a resultset from the model.
 
 =item model_item
 Returns an item from the model.
+
+=item model_pks
+Returns columns comprising the primary key.
 
 =item source_name
 Class method for finding name of corresponding database table.

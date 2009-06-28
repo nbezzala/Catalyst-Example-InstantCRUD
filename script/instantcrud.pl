@@ -25,18 +25,19 @@ my $nonew    = 0;
 my $scripts  = 0;
 my $short    = 0;
 my $auth     = 1;
+my $rest     = 0;
 my $dsn;
 my $duser;
 my $dpassword;
 my $model_name  = 'DBICSchemamodel';
 my $schema_name = 'DBSchema';
-
 my %auth;
 my %authz;
 
 GetOptions(
     'help|?'  => \$help,
     'advanced_help'  => \$adv_help,
+    'rest'   => \$rest,
     'nonew'   => \$nonew,
     'scripts' => \$scripts,
     'short'   => \$short,
@@ -72,15 +73,23 @@ my $helper = Catalyst::Helper::InstantCRUD->new( {
     'schema_name' => $schema_name,
     'auth'        => \%auth,
     'authz'       => \%authz,
+    'rest'        => $rest,
 } );
-
-if( ! $helper->mk_app( $appname ) ){
-    warn "Cannot create application: $appname\n";
-    pod2usage(1) unless $helper->mk_app( $appname );
-}
 
 my $appdir = $appname;
 $appdir =~ s/::/-/g;
+if( -d $appdir ){
+    warn "\nThe directory '$appdir' already exists! Cannot recreate '$appname'!\n\n";
+    pod2usage(1);
+    exit;
+}
+    
+if( ! $helper->mk_app( $appname ) ){
+    warn "Cannot create application: $appname\n";
+    pod2usage(1);
+    exit;
+}
+
 if( ! $dsn ){
     my $db_file = lc $appname . '.db';
     $db_file =~ s/::/_/g;
@@ -99,8 +108,8 @@ make_schema_at(
 #        debug => 1, 
         dump_directory => dir( $appdir , 'lib')->absolute->stringify, 
         use_namespaces => 1,
-        default_resultset_class => '+DBIx::Class::ResultSet::RecursiveUpdate', 
-        components => 'UTF8Columns',
+#        default_resultset_class => '+DBIx::Class::ResultSet::RecursiveUpdate', 
+        components => [ 'InflateColumn::DateTime', 'UTF8Columns' ],
     },
     [ $dsn, $duser, $dpassword ],
 );
@@ -235,7 +244,9 @@ instantcrud.pl ApplicationName [options]
    -model_name     model name (default: DBICSchemamodel) 
    -schema_name    schema name (default: DBSchema) 
 
- ApplicationName must be a valid Perl module name and can include "::";
+ ApplicationName must be a valid Perl module name and can include "::".
+ This version cannot update previously generated code base - it can only
+ generate a new one.
 
  All options are optional, if no dsn is provided an example SQLite database will be 
  created and used.
@@ -349,7 +360,7 @@ CREATE TABLE dvd (
   name VARCHAR(255) DEFAULT NULL,
   imdb_id INTEGER DEFAULT NULL,
   owner INTEGER NOT NULL REFERENCES user (id),
-  current_owner INTEGER DEFAULT NULL REFERENCES user (id),
+  current_borrower INTEGER DEFAULT NULL REFERENCES user (id),
   creation_date date DEFAULT NULL,
   alter_date datetime DEFAULT NULL,
   hour time DEFAULT NULL
@@ -418,7 +429,7 @@ CREATE TABLE user (
   name VARCHAR(255) DEFAULT NULL
 );
 INSERT INTO "user" VALUES(1,'jgda','35a2c6fae61f8077aab61faa4019722abf05093c','Jonas Alves');
-INSERT INTO "user" VALUES(2,'isa','59dc310530b44e8dd1231682b4cc5f2458af1c60','Isa');
+INSERT INTO "user" VALUES(2,'maya','59dc310530b44e8dd1231682b4cc5f2458af1c60','Maya');
 CREATE TABLE user_role (
   user INTEGER NOT NULL DEFAULT '0' REFERENCES user (id),
   role INTEGER NOT NULL DEFAULT '0' REFERENCES role (id),
