@@ -1,21 +1,21 @@
-use strict;
-use warnings;
-
 package Catalyst::Example::Controller::InstantCRUD::REST;
 
-use base qw/ Catalyst::Example::Controller::InstantCRUD /;
-use Class::C3;
-
-sub create_action {
-    my $self = shift;
-
-    return $self->maybe::next::method(@_);
+use Moose;
+BEGIN {
+       extends 'Catalyst::Example::Controller::InstantCRUD';
 }
 
 use Carp;
 use Data::Dumper;
 
-use version; our $VERSION = qv('0.0.1');
+our $VERSION = '002';
+
+sub model_pks {
+    my ( $self, $c ) = @_;
+    my $rs = $self->model_resultset($c);
+    my @pks = $rs->result_source->primary_columns;
+    return @pks;
+}
 
 sub create_form : Local {
     my ( $self, $c, @pks ) = @_; 

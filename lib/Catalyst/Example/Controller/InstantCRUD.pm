@@ -1,27 +1,27 @@
-use strict;
-use warnings;
-
 package Catalyst::Example::Controller::InstantCRUD;
 
-use base 'Catalyst::Controller';
+use Moose;
+BEGIN {
+       extends 'Catalyst::Controller';
+}
 
 use Carp;
 use Data::Dumper;
 use Path::Class;
-#use Rose::HTMLx::Form::DBIC;
 
-use version; our $VERSION = qv('0.0.15');
+our $VERSION = '0.016';
 
-sub auto : Local {
-    my ( $self, $c ) = @_;
-    $c->stash->{additional_template_paths} = [ dir( $c->config->{root}, lc $self->source_name) . '', $c->config->{root} . ''];
-}
-
-sub source_name {
+has source_name => ( isa => 'Str', is => 'rw', lazy => 1, builder => 'build_source_name' );
+sub build_source_name {
     my $self  = shift;
     my $class = ref $self;
     $class =~ /([^:]*)$/;
     return $1;
+}
+
+sub auto : Local {
+    my ( $self, $c ) = @_;
+    $c->stash->{additional_template_paths} = [ dir( $c->config->{root}, lc $self->source_name) . '', $c->config->{root} . ''];
 }
 
 sub model_item {
@@ -31,18 +31,10 @@ sub model_item {
     return $item;
 }
 
-sub model_pks {
-    my ( $self, $c ) = @_;
-    my $rs = $self->model_resultset($c);
-    my @pks = $rs->result_source->primary_columns;
-    return @pks;
-}
-
 sub model_resultset {
     my ( $self, $c ) = @_;
-    my $model_name = $c->config->{InstantCRUD}{model_name};
     my $source     = $self->source_name;
-    return $c->model($model_name)->resultset($source);
+    return $self->model_schema($c)->resultset($source);
 }
 
 sub model_schema {
@@ -205,9 +197,6 @@ Returns a resultset from the model.
 
 =item model_item
 Returns an item from the model.
-
-=item model_pks
-Returns columns comprising the primary key.
 
 =item source_name
 Class method for finding name of corresponding database table.

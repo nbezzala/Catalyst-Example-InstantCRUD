@@ -9,7 +9,7 @@ WriteMakefile(
     ABSTRACT_FROM       => 'lib/Catalyst/Example/InstantCRUD.pm',
     PL_FILES            => {},
     PREREQ_PM => {
-        'Catalyst::Runtime'                                      => '5.7000',
+        'Catalyst::Runtime'                                      => '5.8000',
         'Catalyst::Devel'                                        => '1.00',
         'Catalyst::View::TT'                                     => '0.21',
         'DBIx::Class'                                            => '0.08003',
@@ -31,7 +31,6 @@ WriteMakefile(
         'HTML::FormHandler::Generator::DBIC'                     => 0.02,
         'HTML::FormHandler'                                      => 0.26,
         'Path::Class'                                            => 0,
-#        'version'                                                => 0,
 #        'URI::Escape'                                            => 0,
         'File::Slurp'                                            => 0,
         'Pod::Usage'                                             => 0,
