@@ -187,7 +187,7 @@ __list__
     [% SET id = row.$pri %]
     <td><a href="[% c.uri_for( <+ IF rest +>'by_id'<+ ELSE +>'view'<+ END +>, <+ FOR key = primary_keys +>row.<+ key +>, <+ END +> ) %]">View</a></td>
     <td><a href="[% c.uri_for( <+ IF rest +>'by_id'<+ ELSE +>'edit'<+ END +>, <+ FOR key = primary_keys +>row.<+ key +>, <+ END +><+ IF rest +>,'edit'<+ END +> ) %]">Edit</a></td>
-    <td><a href="[% c.uri_for( <+ IF rest +>'by_id'<+ ELSE +>'destroy'<+ END +>, <+ FOR key = primary_keys +>row.<+ key +>, <+ END +><+ IF rest +>,'destroy'<+ END +> ) %]">Destroy</a></td>
+    <td><a href="[% c.uri_for( <+ IF rest +>'by_id'<+ ELSE +>'destroy'<+ END +>, <+ FOR key = primary_keys +>row.<+ key +>, <+ END +><+ IF rest +>,'destroy'<+ END +> ) %]">Delete</a></td>
     </tr>
 [% END %]
 </table>

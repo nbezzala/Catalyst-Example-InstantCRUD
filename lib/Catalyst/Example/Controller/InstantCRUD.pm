@@ -19,6 +19,12 @@ sub build_source_name {
     return $1;
 }
 
+has form_class => ( isa => 'Str', is => 'rw', lazy => 1, builder => 'build_form_class' );
+sub build_form_class {
+    my $self  = shift;
+    return ref( $self ) . '::' . $self->source_name . 'Form';
+}
+
 sub auto : Local {
     my ( $self, $c ) = @_;
     $c->stash->{additional_template_paths} = [ dir( $c->config->{root}, lc $self->source_name) . '', $c->config->{root} . ''];
@@ -53,8 +59,7 @@ sub destroy : Local {
     my ( $self, $c, @pks ) = @_;
     if ( $c->req->method eq 'POST' ) {
         $self->model_item( $c, @pks )->delete;
-        $c->stash->{template} = lc( $self->source_name ) . '/list.tt';
-        $c->forward('list');
+        $c->res->redirect( $c->uri_for( 'list' ) );
     }
     else {
         my $action_uri = $c->uri_for( 'destroy', @pks);
@@ -70,10 +75,9 @@ END
 
 sub edit : Local {
     my ( $self, $c, @pks ) = @_; 
-    my $form_name = ref( $self ) . '::' . $self->source_name . 'Form';
     my @ids;
     @ids = ( item_id => [ @pks ] ) if @pks;
-    my $form = $form_name->new( 
+    my $form = $self->form_class->new( 
         schema => $self->model_schema($c), 
         params => $c->req->params, 
         @ids,

@@ -1,6 +1,6 @@
 package Catalyst::Example::InstantCRUD;
 
-$VERSION = '0.033';
+$VERSION = '0.034';
 
 use warnings;
 use strict;

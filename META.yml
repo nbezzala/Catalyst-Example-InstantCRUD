@@ -1,6 +1,6 @@
 --- #YAML:1.0
 name:               Catalyst-Example-InstantCRUD
-version:            0.033
+version:            0.034
 abstract:           A CRUD scaffolding for Catalyst.
 author:
     - <Zbigniew Lukasiak> <<zz bb yy @ gmail.com>>
@@ -27,10 +27,12 @@ requires:
     DBIx::Class::UTF8Columns:  0
     File::Slurp:          0
     HTML::FormHandler:    0.26
-    HTML::FormHandler::Generator::DBIC:  0.02
+    HTML::FormHandler::Generator::DBIC:  0.03
+    HTML::FormHandler::Model::DBIC:  0.04
     List::Util:           0
     Path::Class:          0
     Pod::Usage:           0
+    String::Random:       0
 no_index:
     directory:
         - t
