@@ -211,6 +211,13 @@ InstantCRUD:
     model_name: [% model_name %]
     schema_name: [% schema_name %]
     maxrows: 10
+
+Model::[% model_name %]:
+    connect_info:
+        dsn: "[% dsn %]"
+        user: [% duser %]
+        password: [% dpassword %]
+
 __END__
 
 =head1 NAME

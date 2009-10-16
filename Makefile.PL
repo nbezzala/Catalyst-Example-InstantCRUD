@@ -18,7 +18,7 @@ WriteMakefile(
         'DBIx::Class::UTF8Columns'                               => 0,
 #        'DBIx::Class::DigestColumns'                             => 0,
 #        'Template::Plugin::Class'                                => 0,
-        'Catalyst::Model::DBIC::Schema'                          => 0,
+        'Catalyst::Model::DBIC::Schema'                          => 0.29,
         'Catalyst::Helper::Model::DBIC::Schema'                  => 0,
         'Catalyst::Plugin::ConfigLoader'                         => 0,
         'Catalyst::Plugin::Static::Simple'                       => 0,

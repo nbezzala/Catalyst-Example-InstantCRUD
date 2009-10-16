@@ -65,6 +65,22 @@ GetOptions(
 pod2usage($adv_help ? 1 : 2) if $help || $adv_help || !$appname;
 
 # Application
+my $appdir = $appname;
+$appdir =~ s/::/-/g;
+if( -d $appdir ){
+    warn "\nThe directory '$appdir' already exists! Cannot recreate '$appname'!\n\n";
+    pod2usage(1);
+    exit;
+}
+
+my $db_file;
+if( ! $dsn ){
+    $db_file = lc $appname . '.db';
+    $db_file =~ s/::/_/g;
+    $db_file = file( $appdir, $db_file )->absolute->stringify;
+    $dsn = "dbi:SQLite:dbname=$db_file";
+}
+
 my $helper = Catalyst::Helper::InstantCRUD->new( {
     '.newfiles'   => !$nonew,
     'scripts'     => $scripts,
@@ -74,15 +90,10 @@ my $helper = Catalyst::Helper::InstantCRUD->new( {
     'auth'        => \%auth,
     'authz'       => \%authz,
     'rest'        => $rest,
+    'dsn'         => $dsn,
+    'duser'        => $duser,
+    'dpassword'    => $dpassword,
 } );
-
-my $appdir = $appname;
-$appdir =~ s/::/-/g;
-if( -d $appdir ){
-    warn "\nThe directory '$appdir' already exists! Cannot recreate '$appname'!\n\n";
-    pod2usage(1);
-    exit;
-}
     
 if( ! $helper->mk_app( $appname ) ){
     warn "Cannot create application: $appname\n";
@@ -90,13 +101,9 @@ if( ! $helper->mk_app( $appname ) ){
     exit;
 }
 
-if( ! $dsn ){
-    my $db_file = lc $appname . '.db';
-    $db_file =~ s/::/_/g;
-    $db_file = file( $appdir, $db_file )->absolute->stringify;
+if( $db_file ){
     create_example_db( $db_file );
     warn "Database created at $db_file\n";
-    $dsn = "dbi:SQLite:dbname=$db_file";
 }
 
 local $FindBin::Bin = dir($appdir, 'script');
@@ -150,7 +157,7 @@ $helper->mk_component ( $appname, 'controller', 'InstantCRUD', 'InstantCRUD',
 
 # Model
 $helper->mk_component ( $appname, 'model', $model_name, 'DBIC::Schema', 
-  $appname . '::' . $schema_name, $dsn, $duser, $dpassword, 
+  $appname . '::' . $schema_name,
 );
 
 # View and Templates
