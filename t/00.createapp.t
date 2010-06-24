@@ -19,7 +19,7 @@ my $instant = file(dir()->parent->parent, 'script', 'instantcrud.pl');
 
 my $currdir = dir()->absolute;
 chdir $tmpdir;
-my $line = "$^X -I$libdir ../../script/instantcrud.pl My::App -dsn='dbi:SQLite:dbname=$testfile' -noauth";
+my $line = "$^X -I$libdir $libdir/script/instantcrud.pl My::App -dsn=dbi:SQLite:dbname=$testfile -noauth";
 warn $line;
 `$line`;
 chdir $currdir;
@@ -31,7 +31,7 @@ sub create_example_db {
     my ( $filename, $sqlfile ) = @_;
     my $dsn ||= 'dbi:SQLite:dbname=' . $filename;
     my $dbh = DBI->connect( $dsn ) or die "Cannot connect to $dsn\n";
-    $dbh->{unicode} = 1;
+    $dbh->{sqlite_unicode} = 1;
 
     my $sqlfh;
     open $sqlfh, $sqlfile;
